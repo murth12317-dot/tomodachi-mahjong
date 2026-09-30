@@ -703,7 +703,8 @@ class Game {
       const uraChoiceLists = ura.map((u, i) => {
         const pt = uraPocchi[i];
         if (pt === 'hatsu' || pt === 'chun') return mostKinds.map(k => ({ kind: k }));
-        if (pt === 'bai') return convOpts.length ? convOpts.map(c => ({ conv: c })) : mostKinds.map(k => ({ kind: k }));
+        // 倍ぽっち：5を虹に変える。変えられる5が残っていなければ（中ぽっちで使った場合も）一番多い牌を裏ドラに
+        if (pt === 'bai') return convOpts.map(c => ({ conv: c })).concat(mostKinds.map(k => ({ kind: k, baiFallback: true })));
         return [{ normal: true }];
       });
       // 中ぽっちを5として使ったときは、その中ぽっち自身を虹に変えることもできる
@@ -732,6 +733,11 @@ class Game {
         // 変換の重複チェック（同じ牌・同じ虹は不可）
         if (new Set(conversions.map(c => c.id)).size !== conversions.length) continue;
         if (new Set(conversions.map(c => c.suit)).size !== conversions.length) continue;
+        // 倍ぽっちの「一番多い牌」は、虹に変えられる5がもう残っていないときだけ
+        if (uraChoices.some(u => u.baiFallback)) {
+          const usedIds = new Set(conversions.map(c => c.id)), usedSuits = new Set(conversions.map(c => c.suit));
+          if (convOpts.some(c => !usedIds.has(c.id) && !usedSuits.has(c.suit))) continue;
+        }
         // 中ぽっち自身を虹にした場合は追加の槓ドラをめくらない
         const c = evalOne(wk, closedKinds, winKind, conversions, uraChoices);
         if (c) cands.push(c);

@@ -15,6 +15,7 @@ let riichiMode = false; // false | 'normal' | 'open'
 let tickTimer = null;
 let subMenu = null; // {type:'chi'|'pon', options}
 let autoTimer = null;
+let selTile = null; // ダブルタップで切るための選択中の牌
 
 const params = new URLSearchParams(location.search);
 $('#name').value = ls.get('mj_name') || '';
@@ -48,6 +49,7 @@ function onRoom(data) {
 }
 function onState(data) {
   prevS = S; S = data; busy = false;
+  if (!(S.phase === 'discard' && S.turn === S.you && S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
   if (!S.actions || S.phase !== 'discard') riichiMode = false;
   subMenu = null;
@@ -137,6 +139,7 @@ function renderRoom() {
     li.append(dot, h('span', 'nm', s.name));
     if (i === ROOM.you) li.append(h('span', 'tag', 'あなた'));
     if (s.isBot) li.append(h('span', 'tag', 'CPU'));
+    else li.append(h('span', 'tag ' + (s.ready ? 'ok' : 'wait'), s.ready ? '準備OK' : '準備中'));
     if (ROOM.isHost && i !== ROOM.you) {
       const b = h('button', 'small ghost', '外す'); b.onclick = () => api('kick', { seat: i }); li.append(b);
     }
@@ -145,17 +148,26 @@ function renderRoom() {
   const hb = $('#roomHistory'); hb.innerHTML = ''; renderHistory(hb);
   if (ROOM.spectators && ROOM.spectators.length) hb.prepend(h('p', 'sub', `観戦：${ROOM.spectators.join('・')}`));
   $('#hostCtl').classList.toggle('hidden', !ROOM.isHost);
-  $('#guestWait').classList.toggle('hidden', ROOM.isHost);
+  const mine = ROOM.you >= 0 ? ROOM.seats[ROOM.you] : null;
+  $('#guestWait').classList.toggle('hidden', ROOM.isHost || !mine || !mine.ready);
+  $('#btnReady').classList.toggle('hidden', ROOM.isHost || !mine);
+  if (mine && !ROOM.isHost) {
+    $('#btnReady').textContent = mine.ready ? '準備OKを取り消す' : '準備OK';
+    $('#btnReady').className = mine.ready ? 'ghost' : 'primary';
+  }
   if (ROOM.isHost) {
     const full = ROOM.seats.every(Boolean);
+    const waiting = ROOM.seats.filter(s => s && !s.ready);
     $('#btnBot').disabled = full;
-    $('#btnStart').disabled = !full;
-    $('#btnStart').textContent = full ? '対局開始' : `対局開始（あと${ROOM.seats.filter(x => !x).length}人）`;
+    $('#btnStart').disabled = !full || waiting.length > 0;
+    $('#btnStart').textContent = !full ? `対局開始（あと${ROOM.seats.filter(x => !x).length}人）`
+      : waiting.length ? `準備OK待ち（${waiting.map(s => s.name).join('・')}）` : '対局開始';
   }
 }
 $('#btnBot').onclick = () => api('addBot');
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
+$('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
 $('#btnLeave').onclick = async () => { await api('leave'); ROOM = null; show('#lobby'); };
 $('#btnCopy').onclick = async () => {
   const url = `${location.origin}${location.pathname}?room=${ROOM.code}`;
@@ -176,13 +188,15 @@ function tileLabel(k, variant) {
   const base = k < 27 ? `${(k % 9) + 1}${TILE_SUIT[Math.floor(k / 9)]}` : '東南西北白發中'[k - 27];
   return (variant ? { red: '赤', gold: '金', blue: '青', rainbow: '虹' }[variant] : '') + base;
 }
-function tileEl(id, extra = '') {
+function tileEl(id, extra = '', plain = false) {
   const e = h('div', 'tile ' + extra);
   if (id == null || id < 0) { e.classList.add('back'); return e; }
   const k = kindOf(id);
-  if (FIVE_KINDS.has(k)) e.classList.add('c-' + ['red', 'gold', 'blue', 'rainbow'][id % 4]);
-  if (k >= 31 && isPocchi(id)) e.classList.add('pocchi');
-  const variant = FIVE_KINDS.has(k) ? ['red', 'gold', 'blue', 'rainbow'][id % 4] : null;
+  // plain：待ち牌の表示など「牌の種類」だけを見せるときは色を付けない
+  if (!plain && FIVE_KINDS.has(k)) e.classList.add('c-' + ['red', 'gold', 'blue', 'rainbow'][id % 4]);
+  const poc = !plain && k >= 31 && isPocchi(id);
+  if (poc) e.classList.add('pocchi', ['p-bai', 'p-hatsu', 'p-chun'][k - 31]);
+  const variant = plain ? null : FIVE_KINDS.has(k) ? ['red', 'gold', 'blue', 'rainbow'][id % 4] : poc ? 'pocchi' : null;
   e.innerHTML = window.tileSVG(k, variant);
   e.title = tileLabel(k, variant);
   e.dataset.id = id;
@@ -243,7 +257,7 @@ function renderBoard() {
     side.append(lbl);
     if (p.openWaits && p.openWaits.length) {
       const ow = h('div', 'openWaits'); ow.append(h('span', '', 'オープン'));
-      p.openWaits.forEach(k => ow.append(tileEl(k * 4 + 1)));
+      p.openWaits.forEach(k => ow.append(tileEl(k * 4 + 1, '', true)));
       side.append(ow);
     }
     // 河
@@ -291,8 +305,12 @@ function renderMe() {
   const add = (t, extra) => {
     const e = tileEl(t, extra);
     if (inDiscard) {
-      if (allowed.has(t)) { e.classList.add(riichiMode ? 'ok' : 'can'); e.onclick = () => discard(t); }
-      else e.classList.add('ng');
+      if (allowed.has(t)) {
+        e.classList.add(riichiMode ? 'ok' : 'can');
+        if (selTile === t) e.classList.add('sel');
+        // 1回目のタップで選ぶ（牌が上がる）、同じ牌をもう一度タップで切る
+        e.onclick = () => { if (selTile === t) { selTile = null; discard(t); } else { selTile = t; renderMe(); fitLayout(); } };
+      } else e.classList.add('ng');
     }
     hand.append(e);
   };
@@ -331,8 +349,8 @@ function renderMe() {
       btn(riichiMode === 'normal' ? 'リーチ取消' : 'リーチ', 'riichi', () => { riichiMode = riichiMode === 'normal' ? false : 'normal'; renderMe(); });
       btn(riichiMode === 'open' ? 'オープン取消' : 'オープンリーチ', 'riichi', () => { riichiMode = riichiMode === 'open' ? false : 'open'; renderMe(); });
     }
-    (a.ankan || []).forEach(k => btn('カン', '', () => send({ type: 'ankan', kind: k })).prepend(tileEl(k * 4 + 1)));
-    (a.kakan || []).forEach(k => btn('加カン', '', () => send({ type: 'kakan', kind: k })).prepend(tileEl(k * 4 + 1)));
+    (a.ankan || []).forEach(k => btn('カン', '', () => send({ type: 'ankan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
+    (a.kakan || []).forEach(k => btn('加カン', '', () => send({ type: 'kakan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
     if (a.kyuushu) btn('九種九牌', '', () => send({ type: 'kyuushu' }));
     if (riichiMode) box.append(h('span', 'hint', riichiMode === 'open' ? '光っている牌を切るとオープンリーチ（待ちを公開）' : '光っている牌を切るとリーチ'));
   } else if (S.phase === 'claim') {
@@ -344,7 +362,7 @@ function renderMe() {
   const st = $('#status'); st.innerHTML = '';
   if (S.waits && S.waits.length) {
     st.append(h('span', '', S.furiten ? 'フリテン 待ち:' : '待ち:'));
-    S.waits.forEach(k => st.append(tileEl(k * 4 + 1)));
+    S.waits.forEach(k => st.append(tileEl(k * 4 + 1, '', true)));
     if (S.furiten) st.style.color = '#ff9b8a'; else st.style.color = '';
   }
   if (S.spectator) { st.style.color = ''; st.append(h('span', '', '観戦中（手牌は見えません）')); }
@@ -362,7 +380,7 @@ async function send(action) {
   subMenu = null;
   $('#actions').innerHTML = '';
   const r = await api('act', { action });
-  if (r.error) busy = false;
+  if (r.error) { busy = false; if (!window.SOLO) api('sync'); } // 画面と実際の状態がずれていたら取り直す
 }
 
 // 鳴き・リーチの演出
@@ -609,17 +627,32 @@ function renderModal() {
 function fitLayout() {
   if (!S) return;
   const W = document.documentElement.clientWidth;
+  const H0 = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  // 横向き（スマホを横にしたとき）：ボタンを盤の上に重ねて、盤と河の牌を大きく
+  const land = W > H0 * 1.25 && H0 < 700;
+  document.body.classList.toggle('landscape', land);
   // 手牌サイズ
   const meldTiles = S.melds[S.you].reduce((a, m) => a + m.tiles.length, 0);
   const units = (S.hand ? S.hand.length : 13) + (S.drawn != null ? 1.4 : 0) + meldTiles * 0.8 + S.melds[S.you].length * 0.3 + 0.5;
-  const hw = Math.max(20, Math.min(46, Math.floor((W - 20) / (units * 1.06))));
+  const hw = Math.max(20, Math.min(land ? Math.floor(H0 * 0.13) : 46, Math.floor((W - 20) / (units * 1.06))));
   document.documentElement.style.setProperty('--hw', hw + 'px');
   // 卓の縮尺
   const meH = $('#me').offsetHeight;
-  const availH = document.documentElement.clientHeight - meH - 4;
-  const scale = Math.max(0.3, Math.min(W / 600, availH / 600));
+  const appH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const availH = Math.min(document.documentElement.clientHeight, appH) - meH - 4;
+  // 横向きでは盤の上端（対面の手牌の裏側）を少し画面の外に出して、そのぶん大きくする
+  const crop = land ? 50 : 0;
+  const scale = Math.max(0.3, Math.min(W / 600, availH / (600 - crop)));
   const b = $('#board');
-  b.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  b.style.transform = `translate(-50%, calc(-50% - ${crop / 2 * scale}px)) scale(${scale})`;
   $('#boardWrap').style.flex = `0 0 ${availH}px`;
 }
-window.addEventListener('resize', fitLayout);
+// 画面の実際の高さ（LINEなどアプリ内ブラウザで下が隠れないように）
+function setAppHeight() {
+  const hgt = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  document.documentElement.style.setProperty('--appH', Math.round(hgt) + 'px');
+}
+setAppHeight();
+window.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeight(); fitLayout(); }, 300));

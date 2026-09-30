@@ -77,8 +77,15 @@
     const C = colorFn(variant);
     let body = '';
     if (kind < 9) { // 萬子
-      const numColor = variant ? C('k') : COL.k;
-      body = text(KANJI[kind], 18, 22, numColor, 800) + text('萬', 43, 23, variant ? C('r') : COL.r, 800);
+      if (variant === 'rainbow') {
+        // 虹の萬子：文字そのものを虹色のグラデーションにする（赤5萬と見分けやすく）
+        body = `<defs><linearGradient id="rbw" x1="0" y1="0" x2="0" y2="1">` +
+          RAINBOW.map((c, i) => `<stop offset="${(i / (RAINBOW.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join('') +
+          `</linearGradient></defs>` + text(KANJI[kind], 18, 22, 'url(#rbw)', 900) + text('萬', 43, 23, 'url(#rbw)', 900);
+      } else {
+        const numColor = variant ? C('k') : COL.k;
+        body = text(KANJI[kind], 18, 22, numColor, 800) + text('萬', 43, 23, variant ? C('r') : COL.r, 800);
+      }
     } else if (kind < 18) {
       const n = kind - 8;
       body = PIN[n].map(([x, y, r, c]) => pin(x, y, r, n === 1 ? (variant ? C(c) : COL.r) : C(c))).join('');
@@ -89,18 +96,31 @@
     } else if (kind === 31) {
       body = `<rect x="9" y="11" width="26" height="38" rx="3" fill="none" stroke="#2f6fd6" stroke-width="2.4"/>` +
         `<rect x="12.5" y="14.5" width="19" height="31" rx="2" fill="none" stroke="#2f6fd6" stroke-width="1"/>`;
+      if (variant === 'pocchi') {
+        // 倍ぽっち：白の中に小さな丸いガラスを埋め込む（くぼみの中にはまっている感じ）
+        body += `<defs>` +
+          `<linearGradient id="sock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a8475"/><stop offset=".5" stop-color="#cfc8b4"/><stop offset="1" stop-color="#fffdf5"/></linearGradient>` +
+          `<radialGradient id="gls" cx=".42" cy=".62" r=".7"><stop offset="0" stop-color="#e8f7ff"/><stop offset=".45" stop-color="#8fd0ff"/><stop offset="1" stop-color="#2f78c4"/></radialGradient>` +
+          `<radialGradient id="glsIn" cx=".5" cy=".2" r=".7"><stop offset="0" stop-color="#062a4d" stop-opacity=".55"/><stop offset=".6" stop-color="#062a4d" stop-opacity="0"/></radialGradient>` +
+          `</defs>` +
+          `<circle cx="22" cy="30" r="6.4" fill="url(#sock)"/>` +
+          `<circle cx="22" cy="30" r="5.3" fill="url(#gls)"/>` +
+          `<circle cx="22" cy="30" r="5.3" fill="url(#glsIn)"/>` +
+          `<ellipse cx="20.3" cy="31.4" rx="1.6" ry=".9" transform="rotate(-25 20.3 31.4)" fill="#fff" opacity=".85"/>` +
+          `<path d="M18.2 32.8 A4.3 4.3 0 0 0 25.8 32.8" fill="none" stroke="#fff" stroke-width=".5" opacity=".6"/>`;
+      }
     } else {
       const ch = '東南西北 發中'[kind - 27];
       const fill = kind === 32 ? COL.g : kind === 33 ? COL.r : COL.k;
-      body = text(ch, 31, 30, fill, 900);
+      if ((kind === 32 || kind === 33) && variant === 'pocchi') {
+        // 發ぽっち・中ぽっち：金色の文字（ゴールド發・ゴールド中）
+        body = `<defs><linearGradient id="gldH" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1a8"/><stop offset=".45" stop-color="#e2b400"/><stop offset=".55" stop-color="#b98a00"/><stop offset="1" stop-color="#8a6400"/></linearGradient></defs>` +
+          text(ch, 31, 30, 'url(#gldH)', 900).replace('<text ', '<text stroke="#6b4a00" stroke-width=".6" ');
+      } else body = text(ch, 31, 30, fill, 900);
     }
     // 左上に「赤・金・青・虹」の小さな札
-    if (variant) {
-      const lab = { red: ['赤', '#d7263d'], gold: ['金', '#b58500'], blue: ['青', '#1f63d8'], rainbow: ['虹', '#8338ec'] }[variant];
-      body = `<g transform="translate(5.5 6.5) scale(.8)">${body}</g>` +
-        `<rect x="0" y="0" width="12" height="12" rx="2.5" fill="${lab[1]}"/>` +
-        `<text x="6" y="6.4" text-anchor="middle" dominant-baseline="central" font-size="9.5" font-weight="800" fill="#fff" font-family="'Hiragino Sans','Noto Sans JP',sans-serif">${lab[0]}</text>`;
-    }
+    // ぽっちは星などのしるしなし（光る枠と背景の色で見分ける）
+    // 特殊な5は枠と背景の色で見分ける（左上の「赤・金・青・虹」の文字はなし）
     const svg = `<svg viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
     cache.set(key, svg);
     return svg;

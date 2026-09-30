@@ -51,7 +51,7 @@ function roomSummary(room) {
     history: (room.history || []).map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })), // 牌譜は別に取りに来る
     code: room.code,
     settings: room.settings,
-    seats: room.seats.map(s => s && { name: s.name, isBot: !!s.isBot, online: !!s.isBot || online(s.token) }),
+    seats: room.seats.map(s => s && { name: s.name, isBot: !!s.isBot, online: !!s.isBot || online(s.token), ready: !!s.isBot || s.token === room.hostToken || !!s.ready }),
     spectators: (room.spectators || []).filter(v => online(v.token)).map(v => v.name),
     started: !!room.game,
   };
@@ -166,6 +166,15 @@ function handle(token, msg) {
       if (existing < 0) {
         const name = cleanName(msg.name);
         if (!name) return { error: '名前を入力してください' };
+        // 接続が切れた人が、同じ名前で入り直したら元の席に戻る（別のブラウザ・端末からでもOK）
+        const back = r.seats.find(s => s && !s.isBot && s.name === name && !online(s.token));
+        if (back) {
+          if (r.hostToken === back.token) r.hostToken = token;
+          back.token = token;
+          if (r.spectators) r.spectators = r.spectators.filter(v => v.token !== token);
+          room = r; bind(r); broadcast(r);
+          return { ok: true, code: r.code };
+        }
         const free = r.seats.findIndex(s => !s);
         const sp = r.spectators.find(v => v.token === token);
         if (r.game || free < 0) {
@@ -206,11 +215,15 @@ function handle(token, msg) {
     case 'start': {
       if (!isHost() || room.game) return { error: 'ホストのみ操作できます' };
       if (room.seats.some(s => !s)) return { error: '4人そろっていません（CPUを追加できます）' };
+      // 人間のプレイヤー全員の「準備OK」がそろってから（ホストは開始ボタンが準備OKの代わり、CPUは自動でOK）
+      const notReady = room.seats.filter(s => !s.isBot && s.token !== room.hostToken && !(s.ready && online(s.token)));
+      if (notReady.length) return { error: `準備OKを待っています（${notReady.map(s => s.name).join('・')}）` };
       startGame(room); return { ok: true };
     }
     case 'rematch': {
       if (!isHost() || !room.game || !room.game.gameOver) return { error: 'できません' };
       room.game = null;
+      room.seats.forEach(s => { if (s) s.ready = false; }); // 次の対局も全員の準備OKから
       broadcast(room); return { ok: true };
     }
     case 'leave': {
@@ -233,6 +246,18 @@ function handle(token, msg) {
       const e = hs && hs.find(x => x.no === +msg.no);
       if (!e) return { error: '牌譜がありません' };
       return { ok: true, replay: e.replay };
+    }
+    case 'ready': {
+      if (!room || room.game) return { error: 'いまは押せません' };
+      const i = seatIndex();
+      if (i < 0) return { error: '席がありません' };
+      room.seats[i].ready = msg.ready !== false;
+      broadcast(room); return { ok: true };
+    }
+    case 'sync': {
+      if (room) broadcast(room);
+      else send(token, 'hello', { code: null });
+      return { ok: true };
     }
     case 'act': {
       if (!room || !room.game) return { error: '対局中ではありません' };
