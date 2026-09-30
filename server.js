@@ -7,7 +7,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { Game, botAction } = require('./game');
 
-const PUBLIC = path.join(__dirname, 'public');
+// 画面のファイルは public フォルダに置く。フォルダごとアップロードできなかった場合に備えて、
+// public がなければ server.js と同じ場所から配る（サーバー側のファイルは配らない）
+const PUBLIC = fs.existsSync(path.join(__dirname, 'public', 'index.html')) ? path.join(__dirname, 'public') : __dirname;
+const HIDDEN = new Set(['server.js', 'game.js', 'yaku.js', 'rules.js', 'package.json', 'render.yaml', 'README.md']);
 const BOT_DELAY = +(process.env.BOT_DELAY || 600);
 const rooms = new Map(); // code -> room
 const clients = new Map(); // token -> { res, code }
@@ -292,7 +295,7 @@ const server = http.createServer((req, res) => {
   let p = decodeURIComponent(url.pathname);
   if (p === '/') p = '/index.html';
   const file = path.join(PUBLIC, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
-  if (!file.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
+  if (!file.startsWith(PUBLIC) || (PUBLIC === __dirname && (HIDDEN.has(path.basename(file)) || path.dirname(file) !== __dirname))) { res.writeHead(404); return res.end('not found'); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
