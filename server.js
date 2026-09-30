@@ -63,13 +63,13 @@ function broadcast(room) {
   room.seats.forEach((s, i) => {
     if (!s || s.isBot) return;
     send(s.token, 'room', { ...summary, you: i, isHost: s.token === room.hostToken });
-    if (room.game) send(s.token, 'state', room.game.viewFor(i));
+    if (room.game) { const v = room.game.viewFor(i); v.waitFor = waitingFor(room); send(s.token, 'state', v); }
   });
   // 観戦者：手牌は見えない（東家から見た向きで表示）
   for (const v of room.spectators || []) {
     if (!online(v.token)) continue;
     send(v.token, 'room', { ...summary, you: -1, spectator: true, isHost: false });
-    if (room.game) send(v.token, 'state', spectatorView(room.game));
+    if (room.game) { const sv = spectatorView(room.game); sv.waitFor = waitingFor(room); send(v.token, 'state', sv); }
   }
   scheduleBots(room);
 }
@@ -81,9 +81,29 @@ function spectatorView(g) {
   return v;
 }
 
+const GRACE_MS = +(process.env.GRACE_MS || 30000); // 接続が切れた人の番は30秒待ってからCPUが代わりに打つ
+
 function isAuto(room, seat) {
   const s = room.seats[seat];
   return !s || s.isBot || !online(s.token);
+}
+// 接続が切れてからの待ち時間の残り（ms）。0ならCPUが代わりに打つ
+function graceLeft(room, seat) {
+  const s = room.seats[seat];
+  if (!s || s.isBot || online(s.token)) return 0;
+  if (!s.offlineAt) s.offlineAt = Date.now();
+  return Math.max(0, s.offlineAt + GRACE_MS - Date.now());
+}
+// 待っている人（自分の番なのに接続が切れていて、まだ30秒たっていない人）
+function waitingFor(room) {
+  const g = room.game;
+  if (!g || g.gameOver) return [];
+  const out = [];
+  for (let seat = 0; seat < 4; seat++) {
+    const left = graceLeft(room, seat);
+    if (left > 0 && g.actionsFor(seat) && g.phase !== 'result') out.push({ seat, name: room.seats[seat].name, left });
+  }
+  return out;
 }
 
 function scheduleBots(room) {
@@ -91,11 +111,15 @@ function scheduleBots(room) {
   if (!g) return;
   clearTimeout(room.botTimer);
   clearTimeout(room.autoTimer);
+  clearTimeout(room.graceTimer);
   if (g.gameOver) return;
   if (!room.seats.some(s => s && !s.isBot && online(s.token))) return; // 誰もいなければ一時停止
   for (let seat = 0; seat < 4; seat++) g.players[seat].away = !room.seats[seat].isBot && !online(room.seats[seat].token);
   const delay = g.phase === 'result' ? 1500 : g.phase === 'claim' || g.phase === 'choose' ? 250 : BOT_DELAY;
-  const botSeat = [0, 1, 2, 3].find(s => isAuto(room, s) && g.actionsFor(s));
+  // CPUと、接続が切れて30秒たった人の番はCPUが打つ。30秒たっていない人は待つ
+  const botSeat = [0, 1, 2, 3].find(s => isAuto(room, s) && g.actionsFor(s) && graceLeft(room, s) === 0);
+  const waits = waitingFor(room);
+  if (waits.length) room.graceTimer = setTimeout(() => broadcast(room), Math.min(...waits.map(w => w.left)) + 50);
   if (botSeat !== undefined) {
     room.botTimer = setTimeout(() => {
       const act = botAction(g, botSeat);
@@ -171,6 +195,7 @@ function handle(token, msg) {
         if (back) {
           if (r.hostToken === back.token) r.hostToken = token;
           back.token = token;
+          back.offlineAt = null;
           if (r.spectators) r.spectators = r.spectators.filter(v => v.token !== token);
           room = r; bind(r); broadcast(r);
           return { ok: true, code: r.code };
@@ -286,6 +311,7 @@ const server = http.createServer((req, res) => {
     for (const r of rooms.values()) if (r.seats.some(s => s && s.token === token) || (r.spectators || []).some(v => v.token === token)) { code = r.code; break; }
     const entry = { res, code };
     clients.set(token, entry);
+    if (code) { const st = rooms.get(code).seats.find(s => s && s.token === token); if (st) st.offlineAt = null; }
     send(token, 'hello', { code });
     if (code) broadcast(rooms.get(code));
     const ping = setInterval(() => res.write(': ping\n\n'), 20000);
@@ -294,7 +320,11 @@ const server = http.createServer((req, res) => {
       if (clients.get(token) === entry) {
         clients.delete(token);
         const r = entry.code && rooms.get(entry.code);
-        if (r) setTimeout(() => { if (!online(token) && rooms.has(r.code)) broadcast(r); }, 1500);
+        if (r) {
+          const st = r.seats.find(s => s && s.token === token);
+          if (st) st.offlineAt = Date.now(); // ここから30秒は待つ
+          setTimeout(() => { if (!online(token) && rooms.has(r.code)) broadcast(r); }, 1500);
+        }
       }
     });
     return;

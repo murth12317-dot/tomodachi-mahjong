@@ -224,7 +224,24 @@ function meldEl(m) {
 const rel = (seat) => (seat - S.you + 4) % 4;
 const bySide = (arr) => { const out = []; for (let s = 0; s < 4; s++) out[rel(s)] = s; return out.map(s => arr ? arr[s] : s); };
 
+// 接続が切れた人を待っている表示（残り秒数）
+let waitTimer = null;
+function renderWait() {
+  let el = document.getElementById('waitBanner');
+  if (!el) { el = h('div', ''); el.id = 'waitBanner'; document.body.append(el); }
+  clearInterval(waitTimer);
+  const list = (S && S.waitFor) || [];
+  if (!list.length || S.phase === 'result') { el.classList.add('hidden'); return; }
+  const until = list.map(w => ({ name: w.name, at: Date.now() + w.left }));
+  const draw = () => {
+    el.textContent = until.map(w => `${w.name}さんの接続を待っています（残り${Math.max(0, Math.ceil((w.at - Date.now()) / 1000))}秒）`).join('\n');
+  };
+  draw(); el.classList.remove('hidden');
+  waitTimer = setInterval(draw, 500);
+}
+
 function renderTable() {
+  renderWait();
   renderBoard();
   renderMe();
   flashCalls();
@@ -628,24 +645,35 @@ function fitLayout() {
   if (!S) return;
   const W = document.documentElement.clientWidth;
   const H0 = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  // 横向き（スマホを横にしたとき）：ボタンを盤の上に重ねて、盤と河の牌を大きく
+  // 横向き（スマホを横にしたとき）：盤を画面いっぱいに使い、手牌は下の帯に大きく重ねる
   const land = W > H0 * 1.25 && H0 < 700;
   document.body.classList.toggle('landscape', land);
   // 手牌サイズ
   const meldTiles = S.melds[S.you].reduce((a, m) => a + m.tiles.length, 0);
   const units = (S.hand ? S.hand.length : 13) + (S.drawn != null ? 1.4 : 0) + meldTiles * 0.8 + S.melds[S.you].length * 0.3 + 0.5;
-  const hw = Math.max(20, Math.min(land ? Math.floor(H0 * 0.13) : 46, Math.floor((W - 20) / (units * 1.06))));
+  const hw = Math.max(20, Math.min(land ? Math.floor(H0 * 0.16) : 46, Math.floor((W - (land ? 40 : 20)) / (units * 1.06))));
   document.documentElement.style.setProperty('--hw', hw + 'px');
   // 卓の縮尺
   const meH = $('#me').offsetHeight;
   const appH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  const availH = Math.min(document.documentElement.clientHeight, appH) - meH - 4;
-  // 横向きでは盤の上端（対面の手牌の裏側）を少し画面の外に出して、そのぶん大きくする
-  const crop = land ? 50 : 0;
-  const scale = Math.max(0.3, Math.min(W / 600, availH / (600 - crop)));
+  const H = Math.min(document.documentElement.clientHeight, appH);
   const b = $('#board');
-  b.style.transform = `translate(-50%, calc(-50% - ${crop / 2 * scale}px)) scale(${scale})`;
-  $('#boardWrap').style.flex = `0 0 ${availH}px`;
+  if (land) {
+    // 盤の中で見せる範囲：上は対面の河の3段目あたり（y=40）から、下は自分の河の下（y=556）まで
+    const top = 40, bottom = 560;
+    const scale = Math.max(0.3, Math.min(W / 600, (H - meH - 4) / (bottom - top)));
+    b.style.transformOrigin = 'top center';
+    b.style.top = `${-top * scale}px`;
+    b.style.transform = `translate(-50%, 0) scale(${scale})`;
+    $('#boardWrap').style.flex = `0 0 ${H}px`;
+  } else {
+    const availH = H - meH - 4;
+    const scale = Math.max(0.3, Math.min(W / 600, availH / 600));
+    b.style.transformOrigin = '';
+    b.style.top = '';
+    b.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    $('#boardWrap').style.flex = `0 0 ${availH}px`;
+  }
 }
 // 画面の実際の高さ（LINEなどアプリ内ブラウザで下が隠れないように）
 function setAppHeight() {
