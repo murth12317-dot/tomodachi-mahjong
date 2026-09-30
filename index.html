@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f3d2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="友達麻雀">
+<title>友達麻雀</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- ロビー -->
+<section id="lobby" class="screen">
+  <div class="card">
+    <h1>友達麻雀</h1>
+    <p class="sub">四人打ち・友達対戦専用</p>
+    <label>名前<input id="name" maxlength="12" placeholder="ニックネーム" autocomplete="nickname"></label>
+    <p class="sub">東風戦・25000点持ち・祝儀あり</p>
+    <button id="btnCreate" class="primary">部屋を作る</button>
+    <div class="divider"><span>または</span></div>
+    <div class="row">
+      <input id="code" inputmode="numeric" maxlength="4" placeholder="部屋番号（4桁）">
+      <button id="btnJoin">参加</button>
+    </div>
+    <p id="lobbyMsg" class="msg"></p>
+    <label class="fileOpen small">保存した成績・牌譜を開く<input type="file" id="recordFile" accept=".json,application/json" hidden></label>
+  </div>
+</section>
+
+<!-- 待合室 -->
+<section id="room" class="screen hidden">
+  <div class="card">
+    <p class="sub">部屋番号</p>
+    <div id="roomCode" class="code"></div>
+    <button id="btnCopy" class="small">招待リンクをコピー</button>
+    <p id="roomRule" class="sub"></p>
+    <ul id="seats"></ul>
+    <div id="roomHistory"></div>
+    <div id="hostCtl" class="hidden">
+      <div class="row">
+        <button id="btnBot">CPUを追加</button>
+        <button id="btnStart" class="primary">対局開始</button>
+      </div>
+    </div>
+    <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
+    <button id="btnLeave" class="small ghost">退出</button>
+    <p id="roomMsg" class="msg"></p>
+  </div>
+</section>
+
+<!-- 対局 -->
+<section id="table" class="screen hidden">
+  <div id="boardWrap"><div id="board"></div></div>
+  <div id="me">
+    <div id="actions"></div>
+    <div id="handRow"><div id="hand"></div><div id="myMelds"></div></div>
+    <div id="status"></div>
+  </div>
+  <div id="opts">
+    <label><input type="checkbox" id="noCall"> 鳴きなし</label>
+    <label><input type="checkbox" id="autoWin"> 自動和了</label>
+    <label>音 <select id="sound"><option value="all">すべて</option><option value="turn">番と鳴きだけ</option><option value="off">なし</option></select></label>
+    <label id="watchOpt" class="hidden"><input type="checkbox" id="watch"> 観戦（全員CPU）</label>
+  </div>
+</section>
+
+<div id="modal" class="hidden"><div id="modalBody"></div></div>
+<div id="toast" class="hidden"></div>
+
+<script src="tiles.js"></script>
+<script src="sound.js"></script>
+<script src="effects.js"></script>
+<script src="client.js"></script>
+<script src="replay.js"></script>
+</body>
+</html>

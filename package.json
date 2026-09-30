@@ -1,0 +1,13 @@
+{
+  "name": "tomodachi-mahjong",
+  "version": "1.0.0",
+  "description": "友達対戦用 四人麻雀（ブラウザで遊べる・依存パッケージなし）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
