@@ -5,6 +5,16 @@ const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) 
 const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* noop */ } } };
 
 let token = ls.get('mj_token');
+// LINEからSafariに移ったときなど、URLで渡された本人の印を引き継ぐ（対局中でもそのまま続きから打てる）
+try {
+  const q = new URLSearchParams(location.search);
+  const t = q.get('t');
+  if (t && /^[\w-]{8,64}$/.test(t)) {
+    token = t; ls.set('mj_token', t);
+    q.delete('t'); q.delete('openExternalBrowser');
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+  }
+} catch (e) { /* noop */ }
 if (!token) { token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); ls.set('mj_token', token); }
 
 let ROOM = null;   // 部屋情報
@@ -38,6 +48,7 @@ async function api(cmd, data = {}) {
 
 function show(id) {
   for (const s of ['#lobby', '#room', '#table']) $(s).classList.toggle('hidden', s !== id);
+  document.body.classList.toggle('inGame', id === '#table');
   if (id !== '#table') $('#modal').classList.add('hidden');
 }
 
@@ -170,7 +181,8 @@ $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
 $('#btnLeave').onclick = async () => { await api('leave'); ROOM = null; show('#lobby'); };
 $('#btnCopy').onclick = async () => {
-  const url = `${location.origin}${location.pathname}?room=${ROOM.code}`;
+  // openExternalBrowser=1：LINEで開いたとき、LINEの中ではなくSafariなどのブラウザで開く（画面が広くなる）
+  const url = `${location.origin}${location.pathname}?room=${ROOM.code}&openExternalBrowser=1`;
   try { await navigator.clipboard.writeText(url); toast('招待リンクをコピーしました'); }
   catch (e) { prompt('このリンクを友達に送ってください', url); }
 };
@@ -684,3 +696,24 @@ setAppHeight();
 window.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
 window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeight(); fitLayout(); }, 300));
+
+// LINEの中のブラウザで開いているときは、ふつうのブラウザで開き直す案内を出す（上下のバーがなくなって広くなる）
+(function lineNotice() {
+  if (window.SOLO || !/\bLine\//i.test(navigator.userAgent)) return;
+  const bar = h('div', ''); bar.id = 'lineBar';
+  const a = h('a', '', 'Safariで開く（画面が広くなります）');
+  // 押した時点の部屋と本人の印を付けて開く → 対局中でもSafariでそのまま続きから
+  const link = () => {
+    const u = new URL(location.origin + location.pathname);
+    if (ROOM && ROOM.code) u.searchParams.set('room', ROOM.code);
+    u.searchParams.set('t', token);
+    u.searchParams.set('openExternalBrowser', '1');
+    return u.toString();
+  };
+  a.href = link();
+  a.addEventListener('pointerdown', () => { a.href = link(); });
+  a.addEventListener('touchstart', () => { a.href = link(); }, { passive: true });
+  const x = h('button', 'small ghost', '×'); x.onclick = () => bar.remove();
+  bar.append(a, x);
+  document.body.append(bar);
+})();

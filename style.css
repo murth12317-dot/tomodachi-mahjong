@@ -321,3 +321,9 @@ body.landscape .pond .tile { --w: 38px; }
 body.landscape .pond .prow { height: 52px; }
 body.landscape #opts { top: 6px; right: 8px; bottom: auto; }
 #waitBanner { position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 30; background: rgba(0,0,0,.8); color: #ffd873; padding: 8px 14px; border-radius: 10px; font-size: 14px; font-weight: 700; white-space: pre-line; text-align: center; pointer-events: none; }
+#lineBar { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50; background: #06c755; border-radius: 22px; padding: 6px 6px 6px 16px; display: flex; gap: 6px; align-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+#lineBar a { color: #fff; font-weight: 800; text-decoration: none; font-size: 14px; white-space: nowrap; }
+#lineBar button { color: #fff; text-decoration: none; padding: 4px 10px; }
+/* 対局中は手牌の邪魔にならないよう左上に小さく */
+body.inGame #lineBar { left: 8px; top: calc(6px + env(safe-area-inset-top)); bottom: auto; transform: none; padding: 3px 3px 3px 10px; }
+body.inGame #lineBar a { font-size: 12px; }
