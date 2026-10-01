@@ -25,7 +25,14 @@ let riichiMode = false; // false | 'normal' | 'open'
 let tickTimer = null;
 let subMenu = null; // {type:'chi'|'pon', options}
 let autoTimer = null;
-let selTile = null; // ダブルタップで切るための選択中の牌
+let selTile = null;
+let lastDrawnAnim = null;
+let myMeldCount = null;
+let resultSeenAt = null, modalDelay = null;
+const uraStart = new WeakMap();
+const finalShown = new WeakSet();
+// （旧）裏ドラの平面めくりは和了演出の王牌の台に置き換え
+ // ツモった牌のアニメーション用 // ダブルタップで切るための選択中の牌
 
 const params = new URLSearchParams(location.search);
 $('#name').value = ls.get('mj_name') || '';
@@ -254,6 +261,7 @@ function renderWait() {
 
 function renderTable() {
   renderWait();
+  setTimeout(landHint, 0);
   renderBoard();
   renderMe();
   flashCalls();
@@ -262,8 +270,13 @@ function renderTable() {
   autoPlay();
 }
 
+// アニメーション用：前回描いたときの河・鳴き・リーチの状態（一人用では配列が使い回されるので数を覚える）
+let animMem = null;
 function renderBoard() {
   const b = $('#board'); b.innerHTML = '';
+  const memKey = S.round.title;
+  const mem = animMem && animMem.key === memKey ? animMem : null;
+  const nowMem = { key: memKey, d: S.discards.map(x => x.length), m: S.melds.map(x => x.length), r: S.players.map(p => p.riichi) };
   const c = h('div', 'center');
   c.append(h('div', 'rt', `${S.round.wind}${S.round.kyoku}局`));
   c.append(h('div', 'sticks', `${S.round.honba}本場 供託${S.round.kyotaku}${S.round.kyotakuChips ? `+${S.round.kyotakuChips}枚` : ''}`));
@@ -279,7 +292,7 @@ function renderBoard() {
     const side = h('div', 'side'); side.dataset.rel = r;
     // ラベル
     const lbl = h('div', 'lbl' + (S.turn === seat && S.phase !== 'result' ? ' turn' : ''));
-    if (p.riichi) lbl.append(h('div', 'rstick'));
+    if (p.riichi) lbl.append(h('div', 'rstick' + (mem && !mem.r[seat] ? ' enter' : '')));
     const l1 = h('div'); l1.append(h('span', 'w', p.wind), document.createTextNode(p.name));
     if (p.away) l1.append(h('span', 'off', ' (離席)'));
     lbl.append(l1, h('div', 'sc', p.score.toLocaleString()), h('div', 'chip', `祝儀 ${p.chips > 0 ? '+' : ''}${p.chips}`));
@@ -300,7 +313,8 @@ function renderBoard() {
       else if (sideNext && !d.called) { sideways = true; sideNext = false; }
       if (d.called) return;
       const isLast = S.lastDiscard && S.lastDiscard.seat === seat && i === ds.length - 1 && S.phase === 'claim';
-      visible.push(tileEl(d.tile, (sideways ? 'side ' : '') + (d.tsumogiri ? 'dim ' : '') + (isLast ? 'last' : '')));
+      const isNew = mem && i >= mem.d[seat]; // いま切られた牌は手元からすべり込む
+      visible.push(tileEl(d.tile, (sideways ? 'side ' : '') + (d.tsumogiri ? 'dim ' : '') + (isLast ? 'last ' : '') + (isNew ? 'enter' : '')));
     });
     for (let row = 0; row < 4 && visible.length; row++) {
       const pr = h('div', 'prow');
@@ -317,12 +331,13 @@ function renderBoard() {
       const drew = S.turn === seat && n % 3 === 2 && S.phase === 'discard';
       for (let i = 0; i < n; i++) { const t = tileEl(null); if (drew && i === n - 1) t.style.marginLeft = '6px'; backs.append(t); }
       const ms = h('div', 'ms');
-      S.melds[seat].slice().reverse().forEach(m => ms.prepend(meldEl(m)));
+      S.melds[seat].forEach((m, mi) => { const e = meldEl(m); if (mem && mi >= mem.m[seat]) e.classList.add('enter'); ms.append(e); });
       oh.append(backs, ms);
       side.append(oh);
     }
     b.append(side);
   }
+  animMem = nowMem;
 }
 
 function renderMe() {
@@ -344,14 +359,16 @@ function renderMe() {
     hand.append(e);
   };
   tiles.forEach(t => add(t, ''));
-  if (S.drawn != null) add(S.drawn, 'drawn');
+  if (S.drawn != null) add(S.drawn, 'drawn' + (S.drawn !== lastDrawnAnim ? ' drawIn' : ''));
+  lastDrawnAnim = S.drawn;
   if (S.spectator) {
     // 観戦中：手牌は見えない
     const n = S.players[S.you].handCount;
     for (let i = 0; i < n; i++) hand.append(tileEl(null));
   }
   const mm = $('#myMelds'); mm.innerHTML = '';
-  S.melds[S.you].forEach(m => mm.append(meldEl(m)));
+  S.melds[S.you].forEach((m, mi) => { const e = meldEl(m); if (myMeldCount != null && mi >= myMeldCount) e.classList.add('enter'); mm.append(e); });
+  myMeldCount = S.melds[S.you].length;
 
   // 操作ボタン
   const box = $('#actions'); box.innerHTML = '';
@@ -368,9 +385,9 @@ function renderMe() {
     btn('戻る', 'pass', () => { subMenu = null; renderMe(); });
   } else if (S.phase === 'claim' && S.actions) {
     if (a.ron) btn('ロン', 'win', () => send({ type: 'ron' }));
-    if (a.pon) btn('ポン', '', () => a.pon.length > 1 ? (subMenu = { type: 'pon', options: a.pon }, renderMe()) : send({ type: 'pon', tiles: a.pon[0] }));
-    if (a.chi) btn('チー', '', () => a.chi.length > 1 ? (subMenu = { type: 'chi', options: a.chi }, renderMe()) : send({ type: 'chi', tiles: a.chi[0] }));
-    if (a.minkan) btn('カン', '', () => send({ type: 'minkan' }));
+    if (a.pon) btn('ポン', 'pon', () => a.pon.length > 1 ? (subMenu = { type: 'pon', options: a.pon }, renderMe()) : send({ type: 'pon', tiles: a.pon[0] }));
+    if (a.chi) btn('チー', 'chi', () => a.chi.length > 1 ? (subMenu = { type: 'chi', options: a.chi }, renderMe()) : send({ type: 'chi', tiles: a.chi[0] }));
+    if (a.minkan) btn('カン', 'kan', () => send({ type: 'minkan' }));
     btn('スキップ', 'pass', () => send({ type: 'pass' }));
   } else if (inDiscard) {
     if (a.tsumo) btn(a.wild ? 'ツモ（オールマイティ）' : 'ツモ', 'win', () => send({ type: 'tsumo' }));
@@ -378,8 +395,8 @@ function renderMe() {
       btn(riichiMode === 'normal' ? 'リーチ取消' : 'リーチ', 'riichi', () => { riichiMode = riichiMode === 'normal' ? false : 'normal'; renderMe(); });
       btn(riichiMode === 'open' ? 'オープン取消' : 'オープンリーチ', 'riichi', () => { riichiMode = riichiMode === 'open' ? false : 'open'; renderMe(); });
     }
-    (a.ankan || []).forEach(k => btn('カン', '', () => send({ type: 'ankan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
-    (a.kakan || []).forEach(k => btn('加カン', '', () => send({ type: 'kakan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
+    (a.ankan || []).forEach(k => btn('カン', 'kan', () => send({ type: 'ankan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
+    (a.kakan || []).forEach(k => btn('加カン', 'kan', () => send({ type: 'kakan', kind: k })).prepend(tileEl(k * 4 + 1, '', true)));
     if (a.kyuushu) btn('九種九牌', '', () => send({ type: 'kyuushu' }));
     if (riichiMode) box.append(h('span', 'hint', riichiMode === 'open' ? '光っている牌を切るとオープンリーチ（待ちを公開）' : '光っている牌を切るとリーチ'));
   } else if (S.phase === 'claim') {
@@ -422,13 +439,21 @@ function flashCalls() {
       text = { chi: 'チー', pon: 'ポン', minkan: 'カン', ankan: 'カン' }[m.type];
     } else if (S.melds[s].some((m, i) => m.type === 'kakan' && prevS.melds[s][i] && prevS.melds[s][i].type === 'pon')) text = 'カン';
     else if (S.players[s].riichi && !prevS.players[s].riichi) text = S.players[s].open ? 'オープンリーチ' : 'リーチ';
-    if (text) {
-      const side = document.querySelector(`.side[data-rel="${rel(s)}"]`);
-      const f = h('div', 'claimFlash', text);
-      side.append(f);
-      setTimeout(() => f.remove(), 900);
-    }
+    if (text) callFlash(s, text);
   }
+  // 和了の瞬間：「ロン」「ツモ」を大きく出してから結果画面
+  if (S.phase === 'result' && S.result && S.result.type === 'agari' && prevS.phase !== 'result') {
+    S.result.wins.forEach(w => callFlash(w.seat, w.tsumo ? 'ツモ' : 'ロン'));
+  }
+}
+function callFlash(s, text) {
+  const cls = { 'チー': 'cf-chi', 'ポン': 'cf-pon', 'カン': 'cf-kan', 'リーチ': 'cf-riichi', 'オープンリーチ': 'cf-riichi', 'ロン': 'cf-win', 'ツモ': 'cf-win' }[text] || '';
+  const side = document.querySelector(`.side[data-rel="${rel(s)}"]`);
+  if (!side) return;
+  const f = h('div', 'claimFlash ' + cls);
+  f.append(h('span', '', text));
+  side.append(f);
+  setTimeout(() => f.remove(), cls === 'cf-win' ? 1300 : 1000);
 }
 
 // 自動操作（鳴きなし・自動和了・リーチ後のツモ切り）
@@ -531,6 +556,16 @@ function renderChoose(body) {
   body.append(list);
 }
 
+function fitRow(el) {
+  const W = el.clientWidth; if (!W) return;
+  const tiles = el.querySelectorAll('.tile').length, sides = el.querySelectorAll('.tile.side').length;
+  const gaps = el.querySelectorAll('.gap').length, items = el.children.length;
+  let inMeld = 0; el.querySelectorAll('.meld').forEach(m => { inMeld += Math.max(0, m.children.length - 1); });
+  const fixed = 2 * Math.max(0, items - 1) + inMeld + 6 * gaps + 2;
+  const w = Math.max(14, Math.min(34, Math.floor((W - fixed) / (tiles + 0.36 * sides))));
+  el.style.setProperty('--tw', w + 'px');
+}
+
 function renderModal() {
   const m = $('#modal'), body = $('#modalBody');
   clearInterval(tickTimer);
@@ -539,41 +574,114 @@ function renderModal() {
     renderChoose(body);
     return;
   }
-  if (S.phase !== 'result' || !S.result) { m.classList.add('hidden'); return; }
+  if (S.phase !== 'result' || !S.result) { m.classList.add('hidden'); resultSeenAt = null; return; }
+  // 和了の「ロン」「ツモ」の演出を見せてから結果を出す
+  if (resultSeenAt === null || resultSeenAt.r !== S.result) resultSeenAt = { r: S.result, t: Date.now() };
+  const wait = S.result.type === 'agari' ? 1100 - (Date.now() - resultSeenAt.t) : 0;
+  if (wait > 0) { m.classList.add('hidden'); clearTimeout(modalDelay); modalDelay = setTimeout(() => { if (S && resultSeenAt && S.result === resultSeenAt.r) renderModal(); }, wait); return; }
   m.classList.remove('hidden');
   body.innerHTML = '';
   const R = S.result;
   const name = (s) => S.players[s].name;
   if (R.type === 'agari') {
+    // 和了の演出（MJ風）：王牌の台で裏ドラを1枚ずつ引き出してめくる → 役が1行ずつ流れ込む → 「跳満」などを大きく出す
+    // 画面が描き直されても途中から続くように、始まった時刻を覚えておく（負のanimation-delayで続きから再生）
+    const first = !uraStart.has(R);
+    if (first) uraStart.set(R, Date.now());
+    const elapsed = (Date.now() - uraStart.get(R)) / 1000;
+    let longest = 0;
     R.wins.forEach(w => {
+      const nU = w.ura.length, nY = w.yaku.length;
+      const uraAt = (i) => 0.5 + i * 0.9;                 // i枚目の裏ドラを引き出し始める時刻
+      const uraEnd = nU ? uraAt(nU) + 0.2 : 0.15;
+      const yakuAt = (j) => uraEnd + j * 0.22;            // 役の行
+      const stampAt = yakuAt(nY) + 0.15;                  // 「満貫」「跳満」など
+      const restAt = stampAt + (w.limit ? 0.55 : 0.1);    // 点数・祝儀
+      const done = restAt + 0.5;
+      longest = Math.max(longest, done);
+      const anim = elapsed < done;                        // まだ演出中か
+      const at = (el, t, cls = 'reveal') => { if (anim) { el.classList.add(cls); el.style.animationDelay = (t - elapsed) + 's'; } return el; };
       const box = h('div', 'win');
       box.append(h('h2', '', `${name(w.seat)} ${w.tsumo ? 'ツモ' : 'ロン'}${w.from != null ? `（${name(w.from)}）` : ''}`));
       if (w.desc) box.append(h('p', 'sub', w.desc));
+      // 裏ドラで乗った牌を光らせるため、裏ドラ表示牌の「次の牌」を出しておく
+      const nextKind = (k) => k < 27 ? Math.floor(k / 9) * 9 + (k % 9 + 1) % 9 : k < 31 ? 27 + (k - 27 + 1) % 4 : 31 + (k - 31 + 1) % 3;
+      const hitAt = new Map(); // 種類 → 光り始める時刻
+      w.ura.forEach((t, i) => { const k = nextKind(kindOf(t)); if (!hitAt.has(k)) hitAt.set(k, uraAt(i) + 0.85); });
+      const handTile = (t, extra) => { const e = tileEl(t, extra); if (hitAt.has(kindOf(t))) at(e, hitAt.get(kindOf(t)), 'hit'); if (!anim && hitAt.has(kindOf(t))) e.classList.add('hitDone'); return e; };
       const tl = h('div', 'wtiles');
-      w.hand.forEach(t => tl.append(tileEl(t)));
-      tl.append(h('span', 'gap'), tileEl(w.tile, 'last'));
+      w.hand.forEach(t => tl.append(handTile(t)));
+      tl.append(h('span', 'gap'), handTile(w.tile, 'last'));
       if (w.melds.length) tl.append(h('span', 'gap'));
       w.melds.forEach(mm => tl.append(meldEl(mm)));
       box.append(tl);
+      // 裏ドラ表示牌が虹の5なら、その色の6のうち1枚だけが虹の効果を持つ → その1枚は虹色に光らせる
+      w.ura.forEach((t, i) => {
+        const k = kindOf(t);
+        if (!FIVE_KINDS.has(k) || t % 4 !== 3) return;
+        const six = k + 1;
+        const all = [...tl.querySelectorAll('.tile')];
+        if (all.some(e => +e.dataset.id >= 0 && kindOf(+e.dataset.id) === k && +e.dataset.id % 4 === 3)) return; // 同じ種類の虹をもう持っている
+        const target = all.find(e => e.dataset.id != null && kindOf(+e.dataset.id) === six && !e.classList.contains('rbHit'));
+        if (!target) return;
+        target.classList.add('rbHit');
+        if (anim) { target.classList.add('hit'); target.style.animationDelay = (uraAt(i) + 0.85 - elapsed) + 's'; }
+      });
+      if (nU) {
+        // 王牌の台（斜めから見た3D）。上段にドラ表示牌、その下の段から裏ドラを引き出してめくる
+        const stage = h('div', 'stage'); const plane = h('div', 'plane');
+        const nStacks = Math.max(7, w.dora.length + 3);
+        for (let x = 0; x < nStacks; x++) {
+          const di = x - 2; // 左から3つ目からドラ表示
+          const stk = h('div', 'stk');
+          const hasDora = di >= 0 && di < w.dora.length;
+          stk.append(h('div', 'side'));
+          stk.append(tileEl(hasDora ? w.dora[di] : null, 'hi'));
+          if (hasDora && di < nU) {
+            const u = h('div', 'ura'); const inner = h('div', 'inner');
+            inner.append(tileEl(w.ura[di], 'face front'), tileEl(null, 'face backside'));
+            u.append(inner);
+            if (anim) { u.style.animationDelay = (uraAt(di) - elapsed) + 's'; inner.style.animationDelay = (uraAt(di) + 0.4 - elapsed) + 's'; u.classList.add('go'); }
+            stk.append(u);
+            if (first) setTimeout(() => { if (window.SFX) SFX.play('discard'); }, (uraAt(di) + 0.6) * 1000);
+          }
+          plane.append(stk);
+        }
+        stage.append(plane);
+        stage.append(h('div', 'stageLbl', `ドラ表示 ${w.dora.length}枚　裏ドラ ${nU}枚`));
+        box.append(stage);
+      } else {
+        const d = h('div', 'doras'); d.append('ドラ表示');
+        w.dora.forEach(t => d.append(tileEl(t)));
+        box.append(d);
+      }
       const yl = h('div', 'yakulist');
-      w.yaku.forEach(([n, v]) => { yl.append(h('span', '', n), h('span', '', w.yakuman ? (v >= 39 ? 'トリプル役満' : v >= 26 ? 'ダブル役満' : '役満') : `${v}翻`)); });
+      w.yaku.forEach(([n, v], j) => {
+        const val = w.yakuman ? (v >= 39 ? 'トリプル役満' : v >= 26 ? 'ダブル役満' : '役満') : `${v}翻`;
+        yl.append(at(h('span', 'yk', n), yakuAt(j), 'slideIn'), at(h('span', 'yv', val), yakuAt(j), 'slideIn'));
+      });
       box.append(yl);
-      const tot = w.yakuman ? `${w.limit} ${w.points}` : `${w.fu}符 ${w.han}翻 ${w.limit ? w.limit + ' ' : ''}${w.points}`;
-      box.append(h('div', 'total', tot));
+      if (w.limit) box.append(at(h('div', 'stamp ' + (w.yakuman ? 'ym' : ''), w.limit), stampAt, 'stampIn'));
+      if (first && w.limit) setTimeout(() => { if (window.SFX) SFX.play('riichi'); }, stampAt * 1000);
+      const tot = w.yakuman ? `${w.points}` : `${w.fu}符 ${w.han}翻 ${w.points}`;
+      box.append(at(h('div', 'total', tot), restAt));
       const cd = w.chipsDetail || {};
       const parts = [];
       if (cd.special) parts.push(`特殊牌${cd.special}`);
       if (cd.separate) parts.push(`役・打点${cd.separate}`);
       if (cd.oneHan) parts.push(`1翻${cd.oneHan}`);
-      box.append(h('div', 'chipline', `祝儀 ${w.chips}枚${w.tsumo ? '（3人それぞれ）' : ''}${parts.length ? '　' + parts.join('＋') : ''}`));
-      if (w.units && w.units.length) box.append(h('div', 'units', w.units.join('・')));
+      box.append(at(h('div', 'chipline', `祝儀 ${w.chips}枚${w.tsumo ? '（3人それぞれ）' : ''}${parts.length ? '　' + parts.join('＋') : ''}`), restAt));
+      if (w.units && w.units.length) box.append(at(h('div', 'units', w.units.join('・')), restAt));
       if (w.pao != null) box.append(h('div', 'units', `包：${name(w.pao)}`));
-      const d = h('div', 'doras'); d.append('ドラ表示');
-      w.dora.forEach(t => d.append(tileEl(t)));
-      if (w.ura.length) { d.append(' 裏ドラ表示'); w.ura.forEach(t => d.append(tileEl(t))); }
-      box.append(d);
       body.append(box);
     });
+    if (elapsed < longest) {
+      // 演出を飛ばす
+      const sk = h('button', 'small skip', 'スキップ');
+      sk.style.animationDelay = (longest - elapsed) + 's';
+      sk.onclick = () => { uraStart.set(R, Date.now() - 600000); renderModal(); };
+      body.prepend(sk);
+    }
   } else {
     body.append(h('h2', '', R.reason));
     if (R.nagashi && R.nagashi.length) body.append(h('p', 'sub', `流し満貫：${R.nagashi.map(name).join('・')}`));
@@ -586,6 +694,8 @@ function renderModal() {
     });
     body.append(th);
   }
+  // 手牌は折り返さず1列に並べる（入りきるように牌の大きさを決める）
+  body.querySelectorAll('.wtiles').forEach(fitRow);
   if (R.endReason) body.append(h('p', 'sub', R.endReason === 'トビ' ? `トビ：${R.bust.map(name).join('・')}` : R.endReason === 'コールド' ? `コールド：${R.cold.map(name).join('・')}（55000点）` : R.endReason));
   // 点数・祝儀の表
   const tb = h('table', 'sc');
@@ -602,7 +712,17 @@ function renderModal() {
   }
   body.append(tb);
 
+  if (S.gameOver && !finalShown.has(R)) {
+    // 最後の局の結果（裏ドラの演出も）を先に見せて、ボタンで終局の順位表へ
+    const nb = h('button', 'primary sticky', '終局の結果を見る');
+    nb.onclick = () => { finalShown.add(R); renderModal(); };
+    body.append(nb);
+    return;
+  }
   if (S.gameOver) {
+    // 終局の順位表を一番上に出す（最後の局の内容はその下）
+    const lastHand = [...body.childNodes];
+    body.innerHTML = '';
     body.append(h('h2', '', '終局'));
     const ft = h('table', 'sc');
     const fh = h('tr'); ['順位', '点数', '着順祝儀', '祝儀合計'].forEach(x => fh.append(h('td', 'hd', x))); ft.append(fh);
@@ -615,8 +735,10 @@ function renderModal() {
     });
     body.append(ft);
     body.append(h('p', 'sub', '着順祝儀 1着+30枚・2着+10枚・3着−10枚・4着−30枚（祝儀合計に含む）'));
+    const lh = h('details', 'lastHand'); lh.append(h('summary', '', '最後の局の結果'));
+    lastHand.forEach(n => lh.append(n)); body.append(lh);
     renderHistory(body);
-    const row = h('div', 'row');
+    const row = h('div', 'row sticky');
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
@@ -637,13 +759,13 @@ function renderModal() {
   const a = S.actions || {};
   if (a.dealerChoice) {
     const p = h('p', 'sub'); body.append(p); countdown(p, R.dealerDeadline, '親を続けますか？ 時間切れは続行');
-    const row = h('div', 'row');
+    const row = h('div', 'row sticky');
     const b1 = h('button', 'primary', '続行（連荘）'); b1.onclick = () => send({ type: 'dealer', cont: true });
     const b2 = h('button', '', '親を流す'); b2.onclick = () => send({ type: 'dealer', cont: false });
     row.append(b1, b2); body.append(row);
   } else if (a.ready) {
     if (R.needDealerChoice && !R.dealerChoiceMade) body.append(h('p', 'sub', `親（${name(S.round.dealer)}）が続行するか選んでいます`));
-    const b = h('button', 'primary', `OK（${S.ready.length}/4）`); b.onclick = () => send({ type: 'ready' });
+    const b = h('button', 'primary sticky', `OK（${S.ready.length}/4）`); b.onclick = () => send({ type: 'ready' });
     body.append(b);
   } else {
     const waitDealer = R.needDealerChoice && !R.dealerChoiceMade;
@@ -663,7 +785,7 @@ function fitLayout() {
   // 手牌サイズ
   const meldTiles = S.melds[S.you].reduce((a, m) => a + m.tiles.length, 0);
   const units = (S.hand ? S.hand.length : 13) + (S.drawn != null ? 1.4 : 0) + meldTiles * 0.8 + S.melds[S.you].length * 0.3 + 0.5;
-  const hw = Math.max(20, Math.min(land ? Math.floor(H0 * 0.16) : 46, Math.floor((W - (land ? 40 : 20)) / (units * 1.06))));
+  const hw = Math.max(20, Math.min(land ? Math.floor(H0 * 0.16) : 46, Math.floor((W - (land ? 40 : 8)) / (units * (land ? 1.06 : 1.03)))));
   document.documentElement.style.setProperty('--hw', hw + 'px');
   // 卓の縮尺
   const meH = $('#me').offsetHeight;
@@ -717,3 +839,25 @@ window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeig
   bar.append(a, x);
   document.body.append(bar);
 })();
+
+// 設定（鳴きなし・自動和了・音・観戦）は歯車ボタンで開く。盤の上をすっきりさせる
+(function optsToggle() {
+  const opts = document.getElementById('opts');
+  if (!opts) return;
+  const btn = h('button', 'small', '設定'); btn.id = 'optsBtn';
+  btn.onclick = (e) => { e.stopPropagation(); opts.classList.toggle('open'); };
+  document.getElementById('table').append(btn);
+  document.addEventListener('click', (e) => { if (!opts.contains(e.target) && e.target !== btn) opts.classList.remove('open'); });
+})();
+
+// 縦向きのとき、一度だけ「横向きがおすすめ」の案内を出す
+function landHint() {
+  if (document.body.classList.contains('landscape') || !S || ls.get('mj_landHint')) return;
+  if (document.getElementById('landHint')) return;
+  const el = h('div', ''); el.id = 'landHint';
+  el.append(h('span', '', 'スマホを横向きにすると、牌が大きくなって打ちやすくなります'));
+  const x = h('button', 'small ghost', '×'); x.onclick = () => { ls.set('mj_landHint', '1'); el.remove(); };
+  el.append(x);
+  document.body.append(el);
+  setTimeout(() => { if (el.isConnected) { ls.set('mj_landHint', '1'); el.remove(); } }, 8000);
+}

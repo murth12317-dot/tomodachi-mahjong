@@ -57,8 +57,18 @@ function roomSummary(room) {
   };
 }
 
+// ホストの接続が切れて30秒たったら、つながっている別の人をホストにする（「もう一度」「対局開始」を押せる人がいなくならないように）
+function maybeTransferHost(room) {
+  if (online(room.hostToken)) return;
+  const host = room.seats.find(s => s && s.token === room.hostToken);
+  if (host && host.offlineAt && Date.now() - host.offlineAt < GRACE_MS) return;
+  const next = room.seats.find(s => s && !s.isBot && online(s.token));
+  if (next) room.hostToken = next.token;
+}
+
 function broadcast(room) {
   room.lastActive = Date.now();
+  maybeTransferHost(room);
   const summary = roomSummary(room);
   room.seats.forEach((s, i) => {
     if (!s || s.isBot) return;
@@ -200,6 +210,8 @@ function handle(token, msg) {
           room = r; bind(r); broadcast(r);
           return { ok: true, code: r.code };
         }
+        // 同じ名前の人がいると、落ちたときにどちらの席か分からなくなるので断る
+        if (r.seats.some(s => s && s.name === name)) return { error: `「${name}」はもう使われています。別の名前にしてください` };
         const free = r.seats.findIndex(s => !s);
         const sp = r.spectators.find(v => v.token === token);
         if (r.game || free < 0) {
@@ -324,6 +336,7 @@ const server = http.createServer((req, res) => {
           const st = r.seats.find(s => s && s.token === token);
           if (st) st.offlineAt = Date.now(); // ここから30秒は待つ
           setTimeout(() => { if (!online(token) && rooms.has(r.code)) broadcast(r); }, 1500);
+          setTimeout(() => { if (!online(token) && rooms.has(r.code)) broadcast(r); }, GRACE_MS + 200); // ホストの引き継ぎ確認
         }
       }
     });

@@ -512,7 +512,14 @@ class Game {
     }
     const order = [1, 2, 3].map(d => (c.from + d) % 4);
     const rons = order.filter(s => c.responses[s] && c.responses[s].type === 'ron');
-    if (rons.length) { this.doRon(rons, c.from, c.tile, c.isChankan, c.forced); return; }
+    if (rons.length) {
+      // 槍槓：加槓した牌はロンした人のもの。加槓はなかったことにしてポンに戻す（結果画面で牌が二重に見えないように）
+      if (c.isChankan === true) {
+        const m = this.melds[c.from].find(x => x.type === 'kakan' && x.added === c.tile);
+        if (m) { m.type = 'pon'; m.tiles = m.tiles.filter(t => t !== c.tile); delete m.added; }
+      }
+      this.doRon(rons, c.from, c.tile, c.isChankan, c.forced); return;
+    }
     if (c.isChankan === 'ankan') { this.claim = null; this.hands[c.from].push(c.tile); this.completeAnkan(c.from, kindOf(c.tile)); return; }
     if (c.isChankan) { this.claim = null; this.finishKakan(c.from); return; }
     const pk = order.find(s => c.responses[s] && (c.responses[s].type === 'pon' || c.responses[s].type === 'minkan'));
@@ -675,6 +682,8 @@ class Game {
     // 虹に変えられるのは手牌の赤・金・青の5だけで、その5と同じ種類の虹になる（すでにその虹を持っていたら不可）
     const chunConvert = wild === 'chun' && convertible.some(t => !ownRainbow.has(R.SUIT_OF_FIVE[kindOf(t)]));
     if (wild === 'chun' && !chunConvert) extras.push(this.takeExtraPair());
+    // 追加でめくった表ドラ表示牌がぽっちなら、その種類も全部ぽっち（R-33。ふつうの表示牌と同じ扱い）
+    for (const e of extras) this.checkPocchiIndicator(e.omote);
     let omote = this.omoteIndicators().concat(extras.map(e => e.omote));
     let ura = r.state > 0 ? this.uraIndicators().concat(extras.map(e => e.ura)) : [];
     const omoteAll = omote, uraAll = ura;
@@ -788,11 +797,15 @@ class Game {
         // 同じ6に色が重なったら両方数える（例：裏に赤5筒と青5筒 → 6筒1枚で赤＋青）
         const plain = srcs.filter(x => x.color !== 'rainbow');
         const hasRainbow = srcs.some(x => x.color === 'rainbow') && !rainbowHave.has(s);
+        // 裏の虹5で虹の効果を持つのは1枚だけ（残りの6はただの裏ドラなので、裏ドラの祝儀が付く）
+        const rainbowFromUra = hasRainbow && !srcs.some(x => x.color === 'rainbow' && !x.ura);
         sixIds[s].forEach((t, i) => {
-          if (i === 0 && hasRainbow) { units.push('rainbow_' + s); unitLabels.push(R.RAINBOW_NAME[s] + '(6)'); rainbowHave.add(s); }
+          // 虹の効果を持った6は虹だけ（赤・金・青とは複合しない）
+          if (i === 0 && hasRainbow) { units.push('rainbow_' + s); unitLabels.push(R.RAINBOW_NAME[s] + '(6)'); rainbowHave.add(s); return; }
           for (const p of plain) { units.push(p.color); unitLabels.push(R.COLOR_NAME[p.color] + '6'); }
         });
-        uraSixHits += sixIds[s].length * srcs.filter(x => x.ura).length;
+        // 裏ドラの祝儀を数えない6：裏の赤・金・青で色が付いた6は全部、裏の虹で効果を持った6は1枚だけ
+        uraSixHits += sixIds[s].length * plain.filter(x => x.ura).length + (rainbowFromUra ? 1 : 0);
       }
       const uraChips = Math.max(0, (res.uraHan || 0) - uraSixHits);
       for (let i = 0; i < uraChips; i++) { units.push('ura'); unitLabels.push('裏ドラ'); }
