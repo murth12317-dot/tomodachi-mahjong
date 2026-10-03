@@ -614,3 +614,5 @@ body.landscape #modalBody:has(.cands) > .sub { margin: 0; }
 #modalBody.land2 .lin > *, #modalBody.land2 .rin > * { flex: none; }
 #modalBody.land2 .lin .win { gap: 5px; }
 @media (max-height: 420px) { #modalBody.land2 .rin { gap: 2px; } }
+/* フリテンの札 */
+#status .furiten { background: #d4142a; color: #fff; font-weight: 900; font-size: 13px; padding: 1px 8px; border-radius: 6px; box-shadow: 0 0 8px rgba(255,60,60,.6); letter-spacing: .05em; }

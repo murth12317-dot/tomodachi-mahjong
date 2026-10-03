@@ -71,6 +71,7 @@ class Game {
     this.discardKinds = [new Set(), new Set(), new Set(), new Set()];
     this.riichi = [0, 1, 2, 3].map(() => ({ state: 0, ippatsu: false, pending: false, open: false }));
     this.furitenTemp = [false, false, false, false];
+    this.noCall = [false, false, false, false]; // 鳴きなし（局ごとに解除）
     this.furitenRiichi = [false, false, false, false];
     this.hasDiscarded = [false, false, false, false];
     this.pao = [0, 1, 2, 3].map(() => ({ dragon: null, wind: null }));
@@ -119,7 +120,7 @@ class Game {
 
   recordAct(seat, action, prevPhase, prevResult, prevMelds) {
     const t = action.type;
-    if (t === 'ready' || t === 'dealer') return;
+    if (t === 'ready' || t === 'dealer' || t === 'noCall') return;
     if (prevPhase === 'claim') {
       if (this.phase === 'claim') return;
       const who = [0, 1, 2, 3].find(i => this.melds[i].length > prevMelds[i]);
@@ -212,31 +213,58 @@ class Game {
     const kinds = ids.map(kindOf), mc = this.melds[seat].length;
     const waits = Y.getWaits(kinds, mc);
     const own = new Array(34).fill(0); kinds.forEach(k => own[k]++);
-    // どの待ちのどの形でも同じように残る面子・雀頭だけを隠し、残りの牌（待ちに関係する牌）を全部見せる
-    // 例：2-5待ち（34＋東東）→ 34、延べ単 2345 → 2345、シャンポン 55＋東東 → 55東東
-    let common = null, whole = false, chiitoiTanki = null;
-    const sig = (b) => b.join(':');
+    // 隠せる面子・雀頭をできるだけ隠し、残りの牌だけで「すべての待ち」が説明できる一番少ない形を見せる
+    // 例：2-5待ち（34＋東東）→ 34、延べ単 2345 → 2345、シャンポン 55＋東東 → 55東東、56778萬（6-9待ち）→ 78
+    let chiitoiTanki = null, whole = false;
     for (const w of waits) {
       const c = own.slice(); c[w]++;
-      let any = false;
-      for (const d of Y.decompose(c)) {
-        const blocks = [['p', d.pair, d.pair]].concat(d.sets.map(st => st.type === 'koutsu' ? ['k', st.kind, st.kind, st.kind] : ['s', st.kind, st.kind + 1, st.kind + 2]));
-        const wi = blocks.findIndex(bl => bl.slice(1).includes(w));
-        if (wi < 0) continue;
-        any = true;
-        const fixed = {}; blocks.forEach((bl, i) => { if (i !== wi) fixed[sig(bl)] = (fixed[sig(bl)] || 0) + 1; });
-        if (!common) common = fixed;
-        else for (const key of Object.keys(common)) common[key] = Math.min(common[key], fixed[key] || 0);
-      }
-      if (!any) {
-        // 七対子：単騎の牌だけ見せる　国士など：手牌全部を見せる
-        if (mc === 0 && own[w] === 1 && Y.isChiitoi(c)) { (chiitoiTanki = chiitoiTanki || []).push(w); continue; }
-        whole = true; break;
-      }
+      if (Y.decompose(c).length) continue;
+      if (mc === 0 && own[w] === 1 && Y.isChiitoi(c)) { (chiitoiTanki = chiitoiTanki || []).push(w); continue; }
+      whole = true;
     }
+    const common = !whole && !chiitoiTanki;
+    // 面子（と雀頭）だけで完成しているか
+    const complete = (c, needPair) => {
+      const rec = (i, pair) => {
+        while (i < 34 && c[i] === 0) i++;
+        if (i >= 34) return pair === 0;
+        if (pair && c[i] >= 2) { c[i] -= 2; const r = rec(i, 0); c[i] += 2; if (r) return true; }
+        if (c[i] >= 3) { c[i] -= 3; const r = rec(i, pair); c[i] += 3; if (r) return true; }
+        if (i < 27 && i % 9 <= 6 && c[i + 1] && c[i + 2]) { c[i]--; c[i + 1]--; c[i + 2]--; const r = rec(i, pair); c[i]++; c[i + 1]++; c[i + 2]++; if (r) return true; }
+        return false;
+      };
+      return rec(0, needPair ? 1 : 0);
+    };
     const hide = new Array(34).fill(0);
-    if (common && !whole) for (const [key, n] of Object.entries(common)) key.split(':').slice(1).forEach(k => { hide[+k] += n; });
-    if (chiitoiTanki && !common && !whole) return { waits, shape: ids.filter(t => chiitoiTanki.includes(kindOf(t))).sort((x, y) => x - y) };
+    if (common) {
+      let best = null;
+      const shownOk = (shown, pairHidden) => waits.every(w => { shown[w]++; const r = complete(shown, !pairHidden); shown[w]--; return r; });
+      const hidden = new Array(34).fill(0);
+      const rec = (i, pairHidden, nHidden) => {
+        while (i < 34 && own[i] - hidden[i] === 0) i++;
+        if (i >= 34) {
+          const shown = own.map((n, k) => n - hidden[k]);
+          if ((!best || nHidden > best.n) && shownOk(shown, pairHidden)) best = { n: nHidden, h: hidden.slice() };
+          return;
+        }
+        const left = own[i] - hidden[i];
+        if (!pairHidden && left >= 2) { hidden[i] += 2; rec(i, true, nHidden + 2); hidden[i] -= 2; }
+        if (left >= 3) { hidden[i] += 3; rec(i, pairHidden, nHidden + 3); hidden[i] -= 3; }
+        if (i < 27 && i % 9 <= 6 && own[i + 1] - hidden[i + 1] > 0 && own[i + 2] - hidden[i + 2] > 0) {
+          hidden[i]++; hidden[i + 1]++; hidden[i + 2]++; rec(i, pairHidden, nHidden + 3); hidden[i]--; hidden[i + 1]--; hidden[i + 2]--;
+        }
+        // この種類の残りは見せることにして次の種類へ
+        recNext(i + 1, pairHidden, nHidden);
+      };
+      const recNext = (i, pairHidden, nHidden) => {
+        // i より前の種類はもう触らない
+        if (i >= 34) { const shown = own.map((n, k) => n - hidden[k]); if ((!best || nHidden > best.n) && shownOk(shown, pairHidden)) best = { n: nHidden, h: hidden.slice() }; return; }
+        rec(i, pairHidden, nHidden);
+      };
+      rec(0, false, 0);
+      if (best) best.h.forEach((n, k) => { hide[k] = n; });
+    }
+    if (chiitoiTanki && !whole) return { waits, shape: ids.filter(t => chiitoiTanki.includes(kindOf(t))).sort((x, y) => x - y) };
     // 同じ種類の牌が何枚かあるときは、祝儀の枚数が少ない牌から見せる（例：45566索で4-7待ちなら、56の5は一番祝儀の少ない5）
     const val = (t) => { const fc = R.fiveColor(t); if (fc === 'rainbow') return R.BASE_VALUE['rainbow_' + R.SUIT_OF_FIVE[kindOf(t)]] || 0; if (fc) return R.BASE_VALUE[fc] || 0; return this.pocchiOf(t) ? R.BASE_VALUE.pocchi : 0; };
     const shape = [];
@@ -272,7 +300,10 @@ class Game {
     for (const k of new Set(kinds)) {
       const rest = kinds.slice(); rest.splice(rest.indexOf(k), 1);
       const w = this.waitsOf(seat, rest);
-      if (w.length) out[k] = this.waitsWithLeft(w, vis, k);
+      if (w.length) {
+        // f：切ったあとフリテンになるか（自分の河に待ち牌がある・切る牌そのものが待ち牌）
+        out[k] = { w: this.waitsWithLeft(w, vis, k), f: w.some(x => x === k || this.discardKinds[seat].has(x)) };
+      }
     }
     return out;
   }
@@ -439,6 +470,14 @@ class Game {
   }
 
   _act(seat, action) {
+    // 鳴きなしの設定（いつでも切り替えられる。鳴きなしの人にはポン・チー・カンの選択肢を出さず、待たせない）
+    if (action && action.type === 'noCall') {
+      this.noCall[seat] = !!action.on;
+      if (this.noCall[seat] && this.phase === 'claim' && this.claim && this.claim.options[seat] && !this.claim.options[seat].ron && !(seat in this.claim.responses)) {
+        this.claim.responses[seat] = { type: 'pass' }; this.tryResolveClaim();
+      }
+      return true;
+    }
     const avail = this.actionsFor(seat);
     if (!avail || !action) return false;
     const t = action.type;
@@ -516,7 +555,7 @@ class Game {
       } else if (!this.isFuriten(s) && this.waitsOf(s).includes(k)) {
         if (this.canWinNormal(s, tile, false, { chankan: isChankan })) o.ron = true;
       }
-      if (!isChankan && !this.riichi[s].state && this.live.length > 0) {
+      if (!isChankan && !this.riichi[s].state && !(this.noCall && this.noCall[s]) && this.live.length > 0) {
         const same = this.hands[s].filter(t => kindOf(t) === k);
         // 見た目が同じ牌（色なしの同じ種類）は1つの選択肢にまとめる。特殊な5・ぽっちは別の選択肢
         const vk = (t) => R.fiveColor(t) || this.pocchiOf(t) || 'n';

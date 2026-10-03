@@ -429,10 +429,11 @@ function renderMe() {
   st.style.color = '';
   const dw = S.discardWaits || {};
   const selK = selTile != null ? kindOf(selTile) : null;
-  if (selK != null && dw[selK]) showWaits('切ると待ち:', dw[selK]);
+  const furi = () => st.append(h('span', 'furiten', 'フリテン'));
+  if (selK != null && dw[selK]) { if (dw[selK].f) furi(); showWaits('切ると待ち:', dw[selK].w); }
   else if (S.waitsLeft && S.waitsLeft.length) {
-    showWaits(S.furiten ? 'フリテン 待ち:' : '待ち:', S.waitsLeft);
-    if (S.furiten) st.style.color = '#ff9b8a';
+    if (S.furiten) furi();
+    showWaits('待ち:', S.waitsLeft);
   }
   if (S.spectator) { st.style.color = ''; st.append(h('span', '', '観戦中（手牌は見えません）')); }
 }
