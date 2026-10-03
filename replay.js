@@ -78,8 +78,14 @@
       if (st.res.type === 'agari') {
         st.res.wins.forEach(w => {
           const nm = RP.names ? RP.names[w.seat] : 'P' + (w.seat + 1);
-          r.append(h('div', 'rp-win', `${nm} ${w.tsumo ? 'ツモ' : 'ロン'}　${w.points}　祝儀${w.chips}枚`));
+          r.append(h('div', 'rp-win', `${nm} ${w.tsumo ? 'ツモ' : 'ロン'}　${w.points}　祝儀${w.tsumo ? w.chips * 3 + '枚（' + w.chips + '枚オール）' : w.chips + '枚'}`));
+          if (w.desc) r.append(h('div', 'sub', w.desc));
           r.append(h('div', 'sub', w.yaku.map(y => `${y[0]}${y[1] ? ' ' + y[1] + '翻' : ''}`).join('・')));
+          // 祝儀の元になった特殊牌など（例：虹5筒(変換)・中ぽっち・裏ドラ）と内訳
+          if (w.units && w.units.length) r.append(h('div', 'sub', '祝儀牌：' + w.units.join('・')));
+          const cd = w.chipsDetail || {}; const parts = [];
+          if (cd.special) parts.push(`特殊牌${cd.special}`); if (cd.separate) parts.push(`役・打点${cd.separate}`); if (cd.oneHan) parts.push(`1翻${cd.oneHan}`);
+          if (parts.length >= 2) r.append(h('div', 'sub', '内訳：' + parts.join('＋')));
         });
       } else {
         r.append(h('div', 'rp-win', st.res.reason || '流局'));

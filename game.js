@@ -111,7 +111,7 @@ class Game {
     if (this.phase === 'result' && this.result) {
       const R0 = this.result;
       step.res = R0.type === 'agari'
-        ? { type: 'agari', wins: R0.wins.map(w => ({ seat: w.seat, from: w.from, tsumo: w.tsumo, tile: w.tile, yaku: w.yaku, han: w.han, fu: w.fu, limit: w.limit, points: w.points, chips: w.chips, ura: w.ura, hand: w.hand })), delta: R0.delta, chipDelta: R0.chipDelta }
+        ? { type: 'agari', wins: R0.wins.map(w => ({ seat: w.seat, from: w.from, tsumo: w.tsumo, tile: w.tile, yaku: w.yaku, han: w.han, fu: w.fu, limit: w.limit, points: w.points, chips: w.chips, ura: w.ura, hand: w.hand, desc: w.desc, units: w.units, chipsDetail: w.chipsDetail })), delta: R0.delta, chipDelta: R0.chipDelta }
         : { type: 'draw', reason: R0.reason, tenpai: R0.tenpai, hands: R0.hands, delta: R0.delta, chipDelta: R0.chipDelta };
     }
     cur.steps.push(step);
@@ -249,6 +249,8 @@ class Game {
     shape.sort((x, y) => x - y);
     return { waits, shape };
   }
+  // オープンリーチの待ちを見せるか：宣言牌を切った時点（ほかの人がポン・チー・ロンを選ぶ前）から見せる
+  openShown(i) { const r = this.riichi[i]; return (r.state > 0 && r.open) || (!!r.pending && !!r.pendingOpen); }
   // 全員が見えている牌（河・鳴いた牌・ドラ表示牌）から、その種類があと何枚残っているか
   visibleCounts() {
     const c = new Array(34).fill(0);
@@ -256,7 +258,7 @@ class Game {
     for (const ms of this.melds) for (const m of ms) for (const t of m.tiles) c[kindOf(t)]++;
     for (const t of this.omoteIndicators()) c[kindOf(t)]++;
     // オープンリーチで見せている待ちの形の牌も、全員に見えている
-    for (let i = 0; i < 4; i++) if (this.riichi[i].state > 0 && this.riichi[i].open) for (const t of this.openWaitInfo(i).shape) c[kindOf(t)]++;
+    for (let i = 0; i < 4; i++) if (this.openShown(i)) for (const t of this.openWaitInfo(i).shape) c[kindOf(t)]++;
     return c;
   }
   waitsWithLeft(waits, vis, extraKind) {
@@ -516,11 +518,13 @@ class Game {
       }
       if (!isChankan && !this.riichi[s].state && this.live.length > 0) {
         const same = this.hands[s].filter(t => kindOf(t) === k);
+        // 見た目が同じ牌（色なしの同じ種類）は1つの選択肢にまとめる。特殊な5・ぽっちは別の選択肢
+        const vk = (t) => R.fiveColor(t) || this.pocchiOf(t) || 'n';
         if (same.length >= 2) {
           const variants = new Map();
           for (let i = 0; i < same.length; i++) for (let j = i + 1; j < same.length; j++) {
             const pair = [same[i], same[j]];
-            const key = pair.map(x => x % 4).sort().join();
+            const key = pair.map(vk).sort().join();
             if (!variants.has(key)) variants.set(key, pair);
           }
           const pon = [...variants.values()].filter(p => this.canDiscardAfterCall(s, p, [k]));
@@ -540,7 +544,7 @@ class Game {
             if (!ta.length || !tb.length) continue;
             const seen = new Set();
             for (const x of ta) for (const y of tb) {
-              const key = (x % 4) + ',' + (y % 4);
+              const key = vk(x) + ',' + vk(y);
               if (seen.has(key)) continue;
               seen.add(key);
               const forbid = [k];
@@ -752,6 +756,7 @@ class Game {
     // 追加でめくる槓ドラ（オープンリーチ2組、中ぽっちで変える5がない1組）
     const extras = [];
     if (r.state > 0 && r.open) extras.push(this.takeExtraPair(), this.takeExtraPair());
+    const nOpenExtra = extras.length;
     // 虹に変えられるのは手牌の赤・金・青の5だけで、その5と同じ種類の虹になる（すでにその虹を持っていたら不可）
     const chunConvert = wild === 'chun' && convertible.some(t => !ownRainbow.has(R.SUIT_OF_FIVE[kindOf(t)]));
     if (wild === 'chun' && !chunConvert) extras.push(this.takeExtraPair());
@@ -760,19 +765,24 @@ class Game {
     let omote = this.omoteIndicators().concat(extras.map(e => e.omote));
     let ura = r.state > 0 ? this.uraIndicators().concat(extras.map(e => e.ura)) : [];
     const omoteAll = omote, uraAll = ura;
+    // 中ぽっちを5として取ってその5を虹にした場合は、追加の槓ドラはめくらない（中ぽっちのぶんの1組を除いた表示牌）
+    const omoteNoChun = this.omoteIndicators().concat(extras.slice(0, nOpenExtra).map(e => e.omote));
+    const uraNoChun = r.state > 0 ? this.uraIndicators().concat(extras.slice(0, nOpenExtra).map(e => e.ura)) : [];
 
     // 変換の候補
     const convOpts = [];
     for (const t of convertible) { const s = R.SUIT_OF_FIVE[kindOf(t)]; if (!ownRainbow.has(s)) convOpts.push({ id: t, suit: s }); }
 
-    // 裏ドラ表示牌のぽっち（R-34）
-    const uraPocchi = ura.map(u => this.pocchiOf(u));
 
     const cands = [];
     const self = this;
 
     for (const wk of wildKinds) {
-      omote = omoteAll; ura = uraAll;
+      // 中ぽっちを5として取るときは、その5（中ぽっち自身）も虹に変えられる（手牌の5を変えるのとどちらか、祝儀の多いほう）
+      const wsuit = wk != null ? R.SUIT_OF_FIVE[wk] : null;
+      const selfOpt = wild === 'chun' && wsuit && !ownRainbow.has(wsuit) ? { id: winTile, suit: wsuit, self: true } : null;
+      omote = selfOpt && !chunConvert ? omoteNoChun : omoteAll; ura = selfOpt && !chunConvert ? uraNoChun : uraAll;
+      const uraPocchi = ura.map(u => this.pocchiOf(u)); // 裏ドラ表示牌のぽっち（R-34）
       const closedKinds = wild ? baseKinds.concat([wk]) : closedIds.map(kindOf);
       const winKind = wild ? wk : kindOf(winTile);
       // 一番多い牌（暗槓含む）
@@ -791,7 +801,7 @@ class Game {
       });
       // 中ぽっちを5として使ったときは、その中ぽっち自身を虹に変えることもできる
       const chunLists = wild === 'chun'
-        ? (chunConvert ? convOpts.map(c => ({ conv: c })) : [{}])
+        ? (chunConvert || selfOpt ? convOpts.concat(selfOpt ? [selfOpt] : []).map(c => ({ conv: c })) : [{}])
         : [{}];
 
       // 直積
@@ -835,7 +845,7 @@ class Game {
         else if (ch.kind != null) uraKinds.push(ch.kind);
       });
       const nonWild = allIds.filter(t => t !== (wild ? winTile : -1));
-      const akaCount = nonWild.filter(t => R.fiveColor(t)).length;
+      const akaCount = nonWild.filter(t => R.fiveColor(t)).length + (conversions.some(c => c.self) ? 1 : 0); // 虹にした中ぽっちも特殊牌ドラ
       const ctx = Object.assign({}, ctxBase, { closedKinds, winKind, doraKinds, uraKinds, akaCount });
       const res = Y.evaluate(ctx);
       if (!res || !res.hasYaku) return null;
@@ -846,7 +856,12 @@ class Game {
       const convMap = new Map(conversions.map(c => [c.id, c.suit]));
       const sixIds = { m: [], p: [], s: [] };
       for (const t of allIds) {
-        if (wild && t === winTile) { units.push('pocchi'); unitLabels.push(R.POCCHI_NAME[wild]); continue; }
+        if (wild && t === winTile) {
+          units.push('pocchi'); unitLabels.push(R.POCCHI_NAME[wild]);
+          // 5として取った中ぽっちを虹にしたときは、中ぽっちと虹の両方を数える
+          if (convMap.has(t)) { units.push('rainbow_' + convMap.get(t)); unitLabels.push(R.RAINBOW_NAME[convMap.get(t)] + '(中ぽっち)'); }
+          continue;
+        }
         if (convMap.has(t)) { units.push('rainbow_' + convMap.get(t)); unitLabels.push(R.RAINBOW_NAME[convMap.get(t)] + '(変換)'); continue; }
         const fc = R.fiveColor(t);
         if (fc === 'rainbow') { const s = R.SUIT_OF_FIVE[kindOf(t)]; units.push('rainbow_' + s); unitLabels.push(R.RAINBOW_NAME[s]); continue; }
@@ -893,9 +908,10 @@ class Game {
       if (forced && base < 8000) { base = 8000; limit = '役満払い'; }
       const descParts = [];
       if (wild) descParts.push(`${R.POCCHI_NAME[wild]}を${tileName(wk)}として`);
-      for (const c of conversions) descParts.push(`${R.COLOR_NAME[R.fiveColor(c.id)]}${tileName(kindOf(c.id))}→${R.RAINBOW_NAME[c.suit]}`);
+      for (const c of conversions) descParts.push(c.self ? `その${tileName(wk)}→${R.RAINBOW_NAME[c.suit]}` : `${R.COLOR_NAME[R.fiveColor(c.id)]}${tileName(kindOf(c.id))}→${R.RAINBOW_NAME[c.suit]}`);
       uraChoices.forEach(u => { if (u.kind != null) descParts.push(`裏ドラ=${tileName(u.kind)}`); });
       return {
+        ind: { omote, ura },
         desc: descParts.join('・'), han: res.han, fu: res.fu, yaku: res.yaku, limit, yakuman: res.yakumanCount,
         yakumanNames: res.yakumanNames, base, chips: chips.total, chipsDetail: chips, units: unitLabels,
         wildKind: wk, conversions, forced,
@@ -938,6 +954,12 @@ class Game {
 
   // 候補が複数あるときは和了者が選ぶ（R-28・R-34）。ダブロン以上は自動
   startChoose(infos) {
+    // 祝儀も点数も他の候補以下の取り方は選ぶ意味がないので外す（祝儀が一番多い取り方が点数も一番高ければ自動で決まる）
+    for (const inf of infos) {
+      const cs = inf.cands;
+      const keep = cs.filter((c, i) => !cs.some((d, j) => j !== i && d.chips >= c.chips && d.base >= c.base && (d.chips > c.chips || d.base > c.base || j < i)));
+      if (keep.length) inf.cands = keep;
+    }
     if (infos.length === 1 && infos[0].cands.length > 1) {
       const c = infos[0];
       this.choose = { seat: c.seat, infos, cands: c.cands, defaultIndex: Game.defaultIndex(c.cands), deadline: Date.now() + CHOICE_SECONDS * 1000 };
@@ -1019,7 +1041,7 @@ class Game {
         han: c.han, fu: c.fu, yaku: c.yaku, limit: c.limit, yakuman: c.yakuman, desc: c.desc,
         points: this.pointsText(c.base, isDealer, inf.tsumo), chips: c.chips, units: c.units,
         chipsDetail: { special: c.chipsDetail.special, separate: c.chipsDetail.separate, oneHan: c.chipsDetail.oneHan },
-        pao: paoSeat, dora: inf.indicators.omote, ura: inf.indicators.ura, wildKind: c.wildKind != null ? c.wildKind : null,
+        pao: paoSeat, dora: (c.ind || inf.indicators).omote, ura: (c.ind || inf.indicators).ura, wildKind: c.wildKind != null ? c.wildKind : null,
       });
     });
     this.kyotaku = 0;
@@ -1186,8 +1208,8 @@ class Game {
       players: this.players.map((p, i) => ({
         name: p.name, isBot: !!p.isBot, away: !!p.away, score: this.scores[i], chips: this.chips[i],
         wind: WIND_NAMES[(i - this.kyoku + 4) % 4], riichi: this.riichi[i].state > 0, open: this.riichi[i].open,
-        openWaits: this.riichi[i].state > 0 && this.riichi[i].open && this.phase !== 'result' ? this.openWaitInfo(i).waits : null,
-        openShape: this.riichi[i].state > 0 && this.riichi[i].open && this.phase !== 'result' ? this.openWaitInfo(i).shape : null,
+        openWaits: this.openShown(i) && this.phase !== 'result' ? this.openWaitInfo(i).waits : null,
+        openShape: this.openShown(i) && this.phase !== 'result' ? this.openWaitInfo(i).shape : null,
         handCount: this.hands[i].length,
       })),
       round: { wind: '東', kyoku: this.kyoku + 1, honba: this.honba, kyotaku: this.kyotaku, kyotakuChips: this.kyotakuChips, dealer: this.kyoku, title: this.message },

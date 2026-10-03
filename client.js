@@ -604,7 +604,7 @@ function renderModal() {
   if (wait > 0) { m.classList.add('hidden'); clearTimeout(modalDelay); modalDelay = setTimeout(() => { if (S && resultSeenAt && resultSeenAt.r === RK) renderModal(); }, wait); return; }
   m.classList.remove('hidden');
   body.innerHTML = '';
-  body.classList.remove('frGold', 'frRainbow');
+  body.classList.remove('frGold', 'frRainbow', 'frBlink');
   const R = S.result;
   const name = (s) => S.players[s].name;
   let longest = 0, aElapsed = 0; // 和了演出の長さ（点数表はその後に出す）
@@ -706,11 +706,12 @@ function renderModal() {
       fc.append(h('span', 'fcl', '祝儀'), h('span', 'fcn', `${w.tsumo ? w.chips * 3 : w.chips}枚`));
       if (w.tsumo) fc.append(h('span', 'fca', `（${w.chips}枚オール）`));
       const chipN = w.tsumo ? w.chips * 3 : w.chips;
+      if (chipN >= 50) fc.querySelector('.fcn').classList.add('rb'); // 50枚以上は枚数をレインボーに
       // 15枚以下は揺らさずにふわっと出す。30枚以上は枠を金、50枚以上は枠を虹に
       box.append(at(fc, stampAt + 0.4, chipN > 15 ? 'stampIn' : 'reveal'));
-      const fr = chipN >= 50 ? 'frRainbow' : chipN >= 30 ? 'frGold' : null;
-      if (fr && !body.classList.contains('frRainbow')) {
-        body.classList.remove('frGold'); body.classList.add(fr);
+      const fr = chipN >= 100 ? 'frBlink' : chipN >= 50 ? 'frRainbow' : chipN >= 30 ? 'frGold' : null;
+      if (fr && !body.classList.contains('frBlink') && !(fr !== 'frBlink' && body.classList.contains('frRainbow'))) {
+        body.classList.remove('frGold', 'frRainbow'); body.classList.add(fr);
         body.style.setProperty('--frDelay', (anim ? Math.max(0, stampAt + 0.4 - elapsed) : 0) + 's');
       }
       // 祝儀の枚数が画面の下に隠れていたら、出たときに見える所までスクロール
@@ -844,7 +845,11 @@ function landModal(body) {
   const moved = [];
   if (wins.length === 1) wins[0].querySelectorAll(':scope > .finale, :scope > .finChips, :scope > .total, :scope > .chipline, :scope > .units').forEach(e => moved.push(e));
   const cols = h('div', 'lcols'), lc = h('div', 'lcol'), rc = h('div', 'rcol');
-  lc.append(...left); rc.append(...moved, ...right);
+  // OKなどのボタンと案内文は、空いている左の列の下に置く（右の列からはみ出してスクロールが要らないように）
+  const tail = right.filter(e => !e.matches('table.sc'));
+  const tbl = right.filter(e => e.matches('table.sc'));
+  const foot = h('div', 'lfoot'); foot.append(...tail);
+  lc.append(...left, foot); rc.append(...moved, ...tbl);
   cols.append(lc, rc);
   body.innerHTML = ''; body.append(...top, cols);
   body.querySelectorAll('.wtiles').forEach(fitRow);
