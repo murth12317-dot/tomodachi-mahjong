@@ -1155,7 +1155,7 @@ class Game {
       if (n > 0 && n < 4) for (let s = 0; s < 4; s++) delta[s] = tenpai[s] ? 3000 / n : -3000 / (4 - n);
     }
     const hands = tenpai.map((t, s) => t ? sortTiles(this.hands[s]) : null);
-    this.finishHand({ type: 'ryuukyoku', reason, nagashi, tenpai, hands, delta, chipDelta, busters }, { dealerWon: false, draw: true, dealerTenpai: tenpai[this.kyoku] || nagashi.includes(this.kyoku) });
+    this.finishHand({ type: 'ryuukyoku', reason, nagashi, tenpai, hands, melds: this.melds.map((ms, i) => tenpai[i] ? ms.map(m => ({ ...m, tiles: m.tiles.slice() })) : []), delta, chipDelta, busters }, { dealerWon: false, draw: true, dealerTenpai: tenpai[this.kyoku] || nagashi.includes(this.kyoku) });
   }
 
   finishHand(result, info) {

@@ -744,7 +744,13 @@ function renderModal() {
     R.tenpai.forEach((t, s) => {
       const row = h('div');
       row.append(h('div', '', `${name(s)}：${t ? 'テンパイ' : 'ノーテン'}`));
-      if (t && R.hands[s]) { const tl = h('div', 'wtiles'); R.hands[s].forEach(x => tl.append(tileEl(x))); row.append(tl); }
+      if (t && R.hands[s]) {
+        const tl = h('div', 'wtiles'); R.hands[s].forEach(x => tl.append(tileEl(x)));
+        // 鳴いている面子も並べる
+        const ms = (R.melds && R.melds[s]) || [];
+        if (ms.length) { tl.append(h('span', 'gap')); ms.forEach(mm => tl.append(meldEl(mm))); }
+        row.append(tl);
+      }
       th.append(row);
     });
     body.append(th);
