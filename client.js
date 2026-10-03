@@ -69,7 +69,7 @@ function onRoom(data) {
 function onState(data) {
   prevS = S; S = data; busy = false;
   // 鳴きなしは次の局に引き継がない
-  if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false;
+  if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false; // サーバー側も局ごとに解除される
   // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
   if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
@@ -151,6 +151,8 @@ $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJo
 // ================= 待合室 =================
 function renderRoom() {
   $('#roomCode').textContent = ROOM.code;
+  // 席が全部うまっていたら招待リンクは出さない（CPUを外して空席ができたら出る）
+  $('#btnCopy').classList.toggle('hidden', ROOM.seats.every(Boolean));
   const st = ROOM.settings;
   $('#roomRule').textContent = '東風戦・25000点持ち・祝儀あり（ルール定義書どおり）';
   const ul = $('#seats'); ul.innerHTML = '';
@@ -488,7 +490,9 @@ function autoPlay() {
     autoTimer = setTimeout(() => send({ type: 'discard', tile: a.discard[0] }), 500);
   }
 }
-$('#noCall').onchange = $('#autoWin').onchange = () => S && autoPlay();
+$('#autoWin').onchange = () => S && autoPlay();
+// 鳴きなし：サーバーに伝えて、ポン・チーの選択肢そのものを出さないようにする（ほかの人も待たされない）
+$('#noCall').onchange = () => { if (S) { api('act', { action: { type: 'noCall', on: $('#noCall').checked } }); autoPlay(); } };
 if (window.SFX) { $('#sound').value = SFX.mode; $('#sound').onchange = (e) => { SFX.setMode(e.target.value); if (e.target.value !== 'off') SFX.play('turn'); }; }
 if (window.SOLO) {
   $('#watchOpt').classList.remove('hidden');
@@ -654,7 +658,9 @@ function renderModal() {
         target.classList.add('rbHit');
         if (anim) { target.classList.add('hit'); target.style.animationDelay = (uraAt(i) + 0.85 - elapsed) + 's'; }
       });
-      if (nU) {
+      // 横向きでダブロンのときは、画面に収まるように王牌の台を出さず、表示牌を1行で出す
+      const compact = R.wins.length > 1 && document.body.classList.contains('landscape');
+      if (nU && !compact) {
         // 王牌の台（斜めから見た3D）。上段にドラ表示牌、その下の段から裏ドラを引き出してめくる
         const stage = h('div', 'stage'); const plane = h('div', 'plane');
         const nStacks = Math.max(7, w.dora.length + 3);
@@ -680,6 +686,7 @@ function renderModal() {
       } else {
         const d = h('div', 'doras'); d.append('ドラ表示');
         w.dora.forEach(t => d.append(tileEl(t)));
+        if (nU) { d.append('裏ドラ表示'); w.ura.forEach(t => d.append(tileEl(t))); }
         box.append(d);
       }
       const yl = h('div', 'yakulist');
@@ -845,14 +852,26 @@ function landModal(body) {
   const moved = [];
   if (wins.length === 1) wins[0].querySelectorAll(':scope > .finale, :scope > .finChips, :scope > .total, :scope > .chipline, :scope > .units').forEach(e => moved.push(e));
   const cols = h('div', 'lcols'), lc = h('div', 'lcol'), rc = h('div', 'rcol');
-  // OKなどのボタンと案内文は、空いている左の列の下に置く（右の列からはみ出してスクロールが要らないように）
+  // 左の列：手牌・王牌・役（役は全部見えるように左の列いっぱいに使う）
+  // 右の列：結果・祝儀・点数表、いちばん下にOKなどのボタン（ボタンは常に見える。入りきらないときは結果と点数表の部分だけ中でスクロール）
   const tail = right.filter(e => !e.matches('table.sc'));
   const tbl = right.filter(e => e.matches('table.sc'));
   const foot = h('div', 'lfoot'); foot.append(...tail);
-  lc.append(...left, foot); rc.append(...moved, ...tbl);
+  // ダブロンは2人目の和了を右の列（点数表の上）へ
+  const second = wins.length === 2 ? [wins[1]] : [];
+  const rbody = h('div', 'rbody'), rin = h('div', 'rin'); rin.append(...moved, ...second, ...tbl); rbody.append(rin);
+  const lin = h('div', 'lin'); lin.append(...left.filter(e => !second.includes(e)));
+  lc.append(lin); rc.append(rbody, foot);
   cols.append(lc, rc);
   body.innerHTML = ''; body.append(...top, cols);
   body.querySelectorAll('.wtiles').forEach(fitRow);
+  // スクロールさせない：入りきらないときは、その列の中身を少しずつ縮めて画面に収める
+  const fit = (box, inner) => {
+    inner.style.zoom = 1;
+    const avail = box.clientHeight, need = inner.scrollHeight;
+    if (avail > 0 && need > avail) inner.style.zoom = Math.max(0.45, (avail / need) * 0.98).toFixed(3);
+  };
+  fit(lc, lin); fit(rbody, rin);
 }
 
 // ================= レイアウト =================

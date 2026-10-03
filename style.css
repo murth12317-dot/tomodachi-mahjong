@@ -580,3 +580,37 @@ body.landscape #modalBody:has(.cands) > .sub { margin: 0; }
   80% { border-color: #4db8ff; box-shadow: 0 0 28px 6px rgba(77,184,255,.7); }
   100% { border-color: #b84dff; box-shadow: 0 0 28px 6px rgba(184,77,255,.7); } }
 @media (prefers-reduced-motion: reduce) { #modalBody.frBlink { animation: modalIn .35s both, frRainbowOn .2s linear var(--frDelay, 0s) both; } }
+/* 横向きの結果画面：OKボタンは右の列の下 */
+#modalBody.land2 .rcol { overflow: hidden; padding-top: 26px; justify-content: flex-start; }
+#modalBody.land2 .rcol > .rbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; }
+#modalBody.land2 .rcol > .rbody > * { flex: none; }
+#modalBody.land2 .rcol > .lfoot { flex: none; margin-top: 4px; }
+@media (max-height: 420px) {
+  #modalBody.land2 .rin > .units, #modalBody.land2 .rin > .chipline { display: none; }
+  #modalBody.land2 .rbody { gap: 2px; }
+  #modalBody.land2 .rin > .total.sm { margin-top: -6px; }
+  #modalBody.land2 table.sc { font-size: 12px; }
+  #modalBody.land2 table.sc td { padding: 1px 4px; }
+  #modalBody.land2 .rcol { padding-top: 22px; }
+  #modalBody.land2 .stamp { font-size: 26px; }
+  #modalBody.land2 .finale .finPts { font-size: 20px; }
+  #modalBody.land2 .finChips .fcn { font-size: 22px; }
+  #modalBody.land2 .lfoot button { padding: 7px 12px; }
+}
+@media (max-height: 420px) {
+  #modalBody.land2 .stage { height: 80px; }
+  #modalBody.land2 .stage .plane { top: 2px; }
+  #modalBody.land2 .stage .ura { transform: translateY(calc(30px * 1.36 + 8px)); }
+  #modalBody.land2 .yakulist { font-size: 12.5px; }
+  #modalBody.land2 .yakulist .yk, #modalBody.land2 .yakulist .yv { padding: 0; }
+}
+@media (orientation: landscape) and (max-height: 420px) { .stage .ura.go { animation-name: uraPullS; } }
+@keyframes uraPullS { 0% { transform: translateY(4px) translateZ(-1px); } 100% { transform: translateY(calc(30px * 1.36 + 8px)); } }
+/* 横向きの結果画面はスクロールしない（入りきらない列は中身を縮める） */
+#modalBody.land2 .lcol, #modalBody.land2 .rcol, #modalBody.land2 .rbody { overflow: hidden !important; }
+#modalBody.land2 .lcols { height: calc(var(--appH, 100vh) - 36px); }
+#modalBody.land2 .lcol, #modalBody.land2 .rcol { height: 100%; max-height: none; }
+#modalBody.land2 .lin, #modalBody.land2 .rin { display: flex; flex-direction: column; gap: 6px; }
+#modalBody.land2 .lin > *, #modalBody.land2 .rin > * { flex: none; }
+#modalBody.land2 .lin .win { gap: 5px; }
+@media (max-height: 420px) { #modalBody.land2 .rin { gap: 2px; } }
