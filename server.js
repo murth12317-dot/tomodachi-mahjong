@@ -197,6 +197,7 @@ function handle(token, msg) {
       if (!r) return { error: '部屋が見つかりません' };
       const existing = r.seats.findIndex(s => s && s.token === token);
       if (!r.spectators) r.spectators = [];
+      if (existing >= 0) r.seats[existing].left = false; // 終局後にロビーへ行って同じ部屋に戻ってきた
       if (existing < 0) {
         const name = cleanName(msg.name);
         if (!name) return { error: '名前を入力してください' };
@@ -205,7 +206,7 @@ function handle(token, msg) {
         if (back) {
           if (r.hostToken === back.token) r.hostToken = token;
           back.token = token;
-          back.offlineAt = null;
+          back.offlineAt = null; back.left = false;
           if (r.spectators) r.spectators = r.spectators.filter(v => v.token !== token);
           room = r; bind(r); broadcast(r);
           return { ok: true, code: r.code };
@@ -258,8 +259,10 @@ function handle(token, msg) {
       startGame(room); return { ok: true };
     }
     case 'rematch': {
-      if (!isHost() || !room.game || !room.game.gameOver) return { error: 'できません' };
+      // 終局後は誰でも部屋に戻せる（ホストを待たなくていい）
+      if (!room.game || !room.game.gameOver || seatIndex() < 0) return { error: 'できません' };
       room.game = null;
+      room.seats = room.seats.map(s => (s && s.left ? null : s)); // 終局後にロビーへ行った人の席は空ける
       room.seats.forEach(s => { if (s) s.ready = false; }); // 次の対局も全員の準備OKから
       broadcast(room); return { ok: true };
     }
@@ -267,6 +270,11 @@ function handle(token, msg) {
       if (!room) return { ok: true };
       const i = seatIndex();
       if (room.spectators) room.spectators = room.spectators.filter(v => v.token !== token);
+      if (i >= 0 && room.game && room.game.gameOver) {
+        // 終局後にロビーへ：部屋に戻るときに席を空ける。ホストなら残っている人に引き継ぐ
+        room.seats[i].left = true;
+        if (isHost()) { const next = room.seats.find(s => s && !s.isBot && !s.left); if (next) room.hostToken = next.token; }
+      }
       if (i >= 0 && !room.game) {
         room.seats[i] = null;
         if (isHost()) {
@@ -320,7 +328,7 @@ const server = http.createServer((req, res) => {
     if (prev) { try { prev.res.end(); } catch (e) { /* noop */ } }
     // 既に座っている部屋があれば再接続
     let code = null;
-    for (const r of rooms.values()) if (r.seats.some(s => s && s.token === token) || (r.spectators || []).some(v => v.token === token)) { code = r.code; break; }
+    for (const r of rooms.values()) if (r.seats.some(s => s && !s.left && s.token === token) || (r.spectators || []).some(v => v.token === token)) { code = r.code; break; }
     const entry = { res, code };
     clients.set(token, entry);
     if (code) { const st = rooms.get(code).seats.find(s => s && s.token === token); if (st) st.offlineAt = null; }

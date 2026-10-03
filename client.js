@@ -29,7 +29,8 @@ let selTile = null;
 let lastDrawnAnim = null;
 let myMeldCount = null;
 let resultSeenAt = null, modalDelay = null;
-const uraStart = new WeakMap();
+const uraStart = new Map(); // 和了ごとの演出開始時刻（状態が送り直されても同じ和了なら続きから）
+const agariKey = (R) => JSON.stringify([S && S.round, R.wins.map(w => [w.seat, w.tile, w.points, w.ura])]);
 const finalShown = new WeakSet();
 // （旧）裏ドラの平面めくりは和了演出の王牌の台に置き換え
  // ツモった牌のアニメーション用 // ダブルタップで切るための選択中の牌
@@ -62,12 +63,15 @@ function show(id) {
 // ================= 接続 =================
 function onRoom(data) {
   ROOM = data;
-  if (!ROOM.started) { S = null; prevS = null; renderRoom(); show('#room'); }
+  if (!ROOM.started) { S = null; prevS = null; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
 }
 function onState(data) {
   prevS = S; S = data; busy = false;
-  if (!(S.phase === 'discard' && S.turn === S.you && S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
+  // 鳴きなしは次の局に引き継がない
+  if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false;
+  // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
+  if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
   if (!S.actions || S.phase !== 'discard') riichiMode = false;
   subMenu = null;
@@ -298,8 +302,10 @@ function renderBoard() {
     lbl.append(l1, h('div', 'sc', p.score.toLocaleString()), h('div', 'chip', `祝儀 ${p.chips > 0 ? '+' : ''}${p.chips}`));
     side.append(lbl);
     if (p.openWaits && p.openWaits.length) {
-      const ow = h('div', 'openWaits'); ow.append(h('span', '', 'オープン'));
-      p.openWaits.forEach(k => ow.append(tileEl(k * 4 + 1, '', true)));
+      // オープンリーチ：待ちの形（例：2-5待ちなら34）と待ち牌を見せる
+      const ow = h('div', 'openWaits'); ow.append(h('span', '', `オープンリーチ：${p.name}`));
+      const sh = h('div', 'ows'); (p.openShape || []).forEach(t => sh.append(tileEl(t))); ow.append(sh);
+      const ww = h('div', 'oww'); ww.append('待ち'); p.openWaits.forEach(k => ww.append(tileEl(k * 4 + 1, '', true))); ow.append(ww);
       side.append(ow);
     }
     // 河
@@ -351,10 +357,15 @@ function renderMe() {
     if (inDiscard) {
       if (allowed.has(t)) {
         e.classList.add(riichiMode ? 'ok' : 'can');
+        if (S.discardWaits && S.discardWaits[kindOf(t)]) e.classList.add('tcut'); // 切るとテンパイ
         if (selTile === t) e.classList.add('sel');
         // 1回目のタップで選ぶ（牌が上がる）、同じ牌をもう一度タップで切る
         e.onclick = () => { if (selTile === t) { selTile = null; discard(t); } else { selTile = t; renderMe(); fitLayout(); } };
       } else e.classList.add('ng');
+    } else if (!S.spectator && t != null) {
+      // 自分の番でないときも、切る牌を先に選んでおける（別の牌をタップで選び直し）
+      if (selTile === t) e.classList.add('sel');
+      e.onclick = () => { if (selTile === t) return; selTile = t; renderMe(); fitLayout(); };
     }
     hand.append(e);
   };
@@ -406,10 +417,20 @@ function renderMe() {
 
   // ステータス（待ち牌）
   const st = $('#status'); st.innerHTML = '';
-  if (S.waits && S.waits.length) {
-    st.append(h('span', '', S.furiten ? 'フリテン 待ち:' : '待ち:'));
-    S.waits.forEach(k => st.append(tileEl(k * 4 + 1, '', true)));
-    if (S.furiten) st.style.color = '#ff9b8a'; else st.style.color = '';
+  // 待ち牌と残り枚数（全員に見えている河・鳴き・ドラ表示牌から数えた枚数）
+  const showWaits = (label, list) => {
+    st.append(h('span', '', label));
+    let sum = 0;
+    list.forEach(({ k, left }) => { const wb = h('span', 'wl' + (left ? '' : ' none')); wb.append(tileEl(k * 4 + 1, '', true), h('span', 'wn', `${left}`)); st.append(wb); sum += left; });
+    st.append(h('span', 'wsum', `計${sum}枚`));
+  };
+  st.style.color = '';
+  const dw = S.discardWaits || {};
+  const selK = selTile != null ? kindOf(selTile) : null;
+  if (selK != null && dw[selK]) showWaits('切ると待ち:', dw[selK]);
+  else if (S.waitsLeft && S.waitsLeft.length) {
+    showWaits(S.furiten ? 'フリテン 待ち:' : '待ち:', S.waitsLeft);
+    if (S.furiten) st.style.color = '#ff9b8a';
   }
   if (S.spectator) { st.style.color = ''; st.append(h('span', '', '観戦中（手牌は見えません）')); }
 }
@@ -576,27 +597,31 @@ function renderModal() {
   }
   if (S.phase !== 'result' || !S.result) { m.classList.add('hidden'); resultSeenAt = null; return; }
   // 和了の「ロン」「ツモ」の演出を見せてから結果を出す
-  if (resultSeenAt === null || resultSeenAt.r !== S.result) resultSeenAt = { r: S.result, t: Date.now() };
+  // 同じ結果なら、状態が送り直されても（誰かがOKを押しても）出し直さない
+  const RK = JSON.stringify([S.round, S.result.type, S.result.reason, S.result.delta]);
+  if (resultSeenAt === null || resultSeenAt.r !== RK) resultSeenAt = { r: RK, t: Date.now() };
   const wait = S.result.type === 'agari' ? 1100 - (Date.now() - resultSeenAt.t) : 0;
-  if (wait > 0) { m.classList.add('hidden'); clearTimeout(modalDelay); modalDelay = setTimeout(() => { if (S && resultSeenAt && S.result === resultSeenAt.r) renderModal(); }, wait); return; }
+  if (wait > 0) { m.classList.add('hidden'); clearTimeout(modalDelay); modalDelay = setTimeout(() => { if (S && resultSeenAt && resultSeenAt.r === RK) renderModal(); }, wait); return; }
   m.classList.remove('hidden');
   body.innerHTML = '';
+  body.classList.remove('frGold', 'frRainbow');
   const R = S.result;
   const name = (s) => S.players[s].name;
+  let longest = 0, aElapsed = 0; // 和了演出の長さ（点数表はその後に出す）
   if (R.type === 'agari') {
     // 和了の演出（MJ風）：王牌の台で裏ドラを1枚ずつ引き出してめくる → 役が1行ずつ流れ込む → 「跳満」などを大きく出す
     // 画面が描き直されても途中から続くように、始まった時刻を覚えておく（負のanimation-delayで続きから再生）
-    const first = !uraStart.has(R);
-    if (first) uraStart.set(R, Date.now());
-    const elapsed = (Date.now() - uraStart.get(R)) / 1000;
-    let longest = 0;
+    const AK = agariKey(R);
+    const first = !uraStart.has(AK);
+    if (first) { if (uraStart.size > 50) uraStart.clear(); uraStart.set(AK, Date.now()); }
+    const elapsed = (Date.now() - uraStart.get(AK)) / 1000; aElapsed = elapsed;
     R.wins.forEach(w => {
       const nU = w.ura.length, nY = w.yaku.length;
       const uraAt = (i) => 0.5 + i * 0.9;                 // i枚目の裏ドラを引き出し始める時刻
       const uraEnd = nU ? uraAt(nU) + 0.2 : 0.15;
-      const yakuAt = (j) => uraEnd + j * 0.22;            // 役の行
-      const stampAt = yakuAt(nY) + 0.15;                  // 「満貫」「跳満」など
-      const restAt = stampAt + (w.limit ? 0.55 : 0.1);    // 点数・祝儀
+      const yakuAt = (j) => uraEnd + 0.35 + j * 0.5;      // 役の行（シュッ、シュッと1行ずつ）
+      const stampAt = yakuAt(nY) + 0.35;                  // 最後に「満貫 8000点」
+      const restAt = stampAt + 1.0;                       // 内訳・点数表
       const done = restAt + 0.5;
       longest = Math.max(longest, done);
       const anim = elapsed < done;                        // まだ演出中か
@@ -608,7 +633,9 @@ function renderModal() {
       const nextKind = (k) => k < 27 ? Math.floor(k / 9) * 9 + (k % 9 + 1) % 9 : k < 31 ? 27 + (k - 27 + 1) % 4 : 31 + (k - 31 + 1) % 3;
       const hitAt = new Map(); // 種類 → 光り始める時刻
       w.ura.forEach((t, i) => { const k = nextKind(kindOf(t)); if (!hitAt.has(k)) hitAt.set(k, uraAt(i) + 0.85); });
-      const handTile = (t, extra) => { const e = tileEl(t, extra); if (hitAt.has(kindOf(t))) at(e, hitAt.get(kindOf(t)), 'hit'); if (!anim && hitAt.has(kindOf(t))) e.classList.add('hitDone'); return e; };
+      // オールマイティ（ぽっち）で和了ったときは、和了牌は「何として使ったか」で裏ドラを判定する（例：發ぽっちを7筒として → 7筒が裏ドラなら光る、白の次の發としては光らない）
+      const kindFor = (t) => (t === w.tile && w.wildKind != null ? w.wildKind : kindOf(t));
+      const handTile = (t, extra) => { const e = tileEl(t, extra); const kk = kindFor(t); if (hitAt.has(kk)) at(e, hitAt.get(kk), 'hit'); if (!anim && hitAt.has(kk)) e.classList.add('hitDone'); return e; };
       const tl = h('div', 'wtiles');
       w.hand.forEach(t => tl.append(handTile(t)));
       tl.append(h('span', 'gap'), handTile(w.tile, 'last'));
@@ -622,7 +649,7 @@ function renderModal() {
         const six = k + 1;
         const all = [...tl.querySelectorAll('.tile')];
         if (all.some(e => +e.dataset.id >= 0 && kindOf(+e.dataset.id) === k && +e.dataset.id % 4 === 3)) return; // 同じ種類の虹をもう持っている
-        const target = all.find(e => e.dataset.id != null && kindOf(+e.dataset.id) === six && !e.classList.contains('rbHit'));
+        const target = all.find(e => e.dataset.id != null && kindFor(+e.dataset.id) === six && !e.classList.contains('rbHit'));
         if (!target) return;
         target.classList.add('rbHit');
         if (anim) { target.classList.add('hit'); target.style.animationDelay = (uraAt(i) + 0.85 - elapsed) + 's'; }
@@ -661,16 +688,35 @@ function renderModal() {
         yl.append(at(h('span', 'yk', n), yakuAt(j), 'slideIn'), at(h('span', 'yv', val), yakuAt(j), 'slideIn'));
       });
       box.append(yl);
-      if (w.limit) box.append(at(h('div', 'stamp ' + (w.yakuman ? 'ym' : ''), w.limit), stampAt, 'stampIn'));
-      if (first && w.limit) setTimeout(() => { if (window.SFX) SFX.play('riichi'); }, stampAt * 1000);
-      const tot = w.yakuman ? `${w.points}` : `${w.fu}符 ${w.han}翻 ${w.points}`;
-      box.append(at(h('div', 'total', tot), restAt));
+      if (first) w.yaku.forEach((_, j) => setTimeout(() => { if (window.SFX) SFX.play('swish'); }, yakuAt(j) * 1000));
+      // 最後に「満貫 8000点」を大きく
+      const fin = h('div', 'finale');
+      if (w.limit) fin.append(h('span', 'stamp ' + (w.yakuman ? 'ym' : ''), w.limit));
+      fin.append(h('span', 'finPts', /点/.test(String(w.points)) ? String(w.points) : w.points + '点'));
+      box.append(at(fin, stampAt, 'stampIn'));
+      if (first) setTimeout(() => { if (window.SFX) SFX.play('stamp'); }, stampAt * 1000);
+      if (!w.yakuman) box.append(at(h('div', 'total sm', `${w.fu}符 ${w.han}翻`), restAt));
       const cd = w.chipsDetail || {};
       const parts = [];
       if (cd.special) parts.push(`特殊牌${cd.special}`);
       if (cd.separate) parts.push(`役・打点${cd.separate}`);
       if (cd.oneHan) parts.push(`1翻${cd.oneHan}`);
-      box.append(at(h('div', 'chipline', `祝儀 ${w.chips}枚${w.tsumo ? '（3人それぞれ）' : ''}${parts.length ? '　' + parts.join('＋') : ''}`), restAt));
+      // 祝儀の枚数も大きく（ツモは合計と「○枚オール」）
+      const fc = h('div', 'finChips');
+      fc.append(h('span', 'fcl', '祝儀'), h('span', 'fcn', `${w.tsumo ? w.chips * 3 : w.chips}枚`));
+      if (w.tsumo) fc.append(h('span', 'fca', `（${w.chips}枚オール）`));
+      const chipN = w.tsumo ? w.chips * 3 : w.chips;
+      // 15枚以下は揺らさずにふわっと出す。30枚以上は枠を金、50枚以上は枠を虹に
+      box.append(at(fc, stampAt + 0.4, chipN > 15 ? 'stampIn' : 'reveal'));
+      const fr = chipN >= 50 ? 'frRainbow' : chipN >= 30 ? 'frGold' : null;
+      if (fr && !body.classList.contains('frRainbow')) {
+        body.classList.remove('frGold'); body.classList.add(fr);
+        body.style.setProperty('--frDelay', (anim ? Math.max(0, stampAt + 0.4 - elapsed) : 0) + 's');
+      }
+      // 祝儀の枚数が画面の下に隠れていたら、出たときに見える所までスクロール
+      if (anim) setTimeout(() => { if (fc.isConnected) fc.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, Math.max(0, (stampAt + 0.5 - elapsed) * 1000));
+      // 祝儀の内訳は、2つ以上に分かれるときだけ小さく出す
+      if (parts.length >= 2) box.append(at(h('div', 'chipline', `内訳：${parts.join('＋')}`), restAt));
       if (w.units && w.units.length) box.append(at(h('div', 'units', w.units.join('・')), restAt));
       if (w.pao != null) box.append(h('div', 'units', `包：${name(w.pao)}`));
       body.append(box);
@@ -679,7 +725,7 @@ function renderModal() {
       // 演出を飛ばす
       const sk = h('button', 'small skip', 'スキップ');
       sk.style.animationDelay = (longest - elapsed) + 's';
-      sk.onclick = () => { uraStart.set(R, Date.now() - 600000); renderModal(); };
+      sk.onclick = () => { uraStart.set(AK, Date.now() - 600000); renderModal(); };
       body.prepend(sk);
     }
   } else {
@@ -710,6 +756,7 @@ function renderModal() {
     tr.append(h('td', 'num', `${R.chips[s]}枚`));
     tb.append(tr);
   }
+  if (aElapsed < longest) { tb.classList.add('reveal'); tb.style.animationDelay = (longest - 0.5 - aElapsed) + 's'; }
   body.append(tb);
 
   if (S.gameOver && !finalShown.has(R)) {
@@ -717,6 +764,7 @@ function renderModal() {
     const nb = h('button', 'primary sticky', '終局の結果を見る');
     nb.onclick = () => { finalShown.add(R); renderModal(); };
     body.append(nb);
+    landModal(body);
     return;
   }
   if (S.gameOver) {
@@ -750,7 +798,7 @@ function renderModal() {
     }
     if (ROOM && ROOM.solo) { const b = h('button', 'primary', 'もう一度対局する'); b.onclick = () => api('rematch'); row.append(b); }
     else {
-      if (ROOM && ROOM.isHost) { const b = h('button', 'primary', 'もう一度（部屋に戻る）'); b.onclick = () => api('rematch'); row.append(b); }
+      { const b = h('button', 'primary', '部屋に戻る'); b.onclick = () => api('rematch'); row.append(b); }
       const lv = h('button', '', 'ロビーへ'); lv.onclick = async () => { await api('leave'); ROOM = null; show('#lobby'); }; row.append(lv);
     }
     body.append(row);
@@ -772,6 +820,34 @@ function renderModal() {
     body.append(h('p', 'sub', waitDealer ? `親（${name(S.round.dealer)}）が続行するか選んでいます` : `他のプレイヤーを待っています（${S.ready.length}/4）`));
   }
   if (R.dealerChoiceMade) body.append(h('p', 'sub', R.dealerContinue ? '親は続行（連荘）します' : '親を流します'));
+  landModal(body);
+}
+
+// 横向き：結果画面を左右2列にしてスクロールなしで見られるようにする
+// 左：手牌・王牌の台・役　右：満貫などの結果・祝儀・点数表・ボタン
+function landModal(body) {
+  body.classList.remove('land2');
+  if (!document.body.classList.contains('landscape')) return;
+  const kids = [...body.children];
+  const ti = kids.findIndex(e => e.matches('table.sc'));
+  if (ti < 0) return;
+  body.classList.add('land2');
+  const top = [], left = [], right = [];
+  kids.forEach((e, i) => {
+    if (e.matches('.skip')) top.push(e);
+    else if (i < ti && e.matches('h2') && !left.length) top.push(e);
+    else if (i < ti) left.push(e);
+    else right.push(e);
+  });
+  // 和了が1人なら、結果（満貫 8000点・祝儀）は右の列の上へ
+  const wins = left.filter(e => e.matches('.win'));
+  const moved = [];
+  if (wins.length === 1) wins[0].querySelectorAll(':scope > .finale, :scope > .finChips, :scope > .total, :scope > .chipline, :scope > .units').forEach(e => moved.push(e));
+  const cols = h('div', 'lcols'), lc = h('div', 'lcol'), rc = h('div', 'rcol');
+  lc.append(...left); rc.append(...moved, ...right);
+  cols.append(lc, rc);
+  body.innerHTML = ''; body.append(...top, cols);
+  body.querySelectorAll('.wtiles').forEach(fitRow);
 }
 
 // ================= レイアウト =================
@@ -793,8 +869,8 @@ function fitLayout() {
   const H = Math.min(document.documentElement.clientHeight, appH);
   const b = $('#board');
   if (land) {
-    // 盤の中で見せる範囲：上は対面の河の3段目あたり（y=40）から、下は自分の河の下（y=556）まで
-    const top = 40, bottom = 560;
+    // 盤の中で見せる範囲：上は対面の手牌・鳴いた牌（y=0）から、下は自分の河の下（y=560）まで
+    const top = 0, bottom = 560;
     const scale = Math.max(0.3, Math.min(W / 600, (H - meH - 4) / (bottom - top)));
     b.style.transformOrigin = 'top center';
     b.style.top = `${-top * scale}px`;

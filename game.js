@@ -205,6 +205,75 @@ class Game {
   waitsOf(seat, kinds) {
     return Y.getWaits(kinds || this.closedKinds(seat), this.melds[seat].length);
   }
+  // オープンリーチで見せる「待ちの形」（例：2-5待ちなら34、5単騎なら5）
+  openWaitInfo(seat) {
+    let ids = this.hands[seat].slice();
+    if (ids.length % 3 === 2 && this.drawn != null && ids.includes(this.drawn)) ids = ids.filter(t => t !== this.drawn);
+    const kinds = ids.map(kindOf), mc = this.melds[seat].length;
+    const waits = Y.getWaits(kinds, mc);
+    const own = new Array(34).fill(0); kinds.forEach(k => own[k]++);
+    // どの待ちのどの形でも同じように残る面子・雀頭だけを隠し、残りの牌（待ちに関係する牌）を全部見せる
+    // 例：2-5待ち（34＋東東）→ 34、延べ単 2345 → 2345、シャンポン 55＋東東 → 55東東
+    let common = null, whole = false, chiitoiTanki = null;
+    const sig = (b) => b.join(':');
+    for (const w of waits) {
+      const c = own.slice(); c[w]++;
+      let any = false;
+      for (const d of Y.decompose(c)) {
+        const blocks = [['p', d.pair, d.pair]].concat(d.sets.map(st => st.type === 'koutsu' ? ['k', st.kind, st.kind, st.kind] : ['s', st.kind, st.kind + 1, st.kind + 2]));
+        const wi = blocks.findIndex(bl => bl.slice(1).includes(w));
+        if (wi < 0) continue;
+        any = true;
+        const fixed = {}; blocks.forEach((bl, i) => { if (i !== wi) fixed[sig(bl)] = (fixed[sig(bl)] || 0) + 1; });
+        if (!common) common = fixed;
+        else for (const key of Object.keys(common)) common[key] = Math.min(common[key], fixed[key] || 0);
+      }
+      if (!any) {
+        // 七対子：単騎の牌だけ見せる　国士など：手牌全部を見せる
+        if (mc === 0 && own[w] === 1 && Y.isChiitoi(c)) { (chiitoiTanki = chiitoiTanki || []).push(w); continue; }
+        whole = true; break;
+      }
+    }
+    const hide = new Array(34).fill(0);
+    if (common && !whole) for (const [key, n] of Object.entries(common)) key.split(':').slice(1).forEach(k => { hide[+k] += n; });
+    if (chiitoiTanki && !common && !whole) return { waits, shape: ids.filter(t => chiitoiTanki.includes(kindOf(t))).sort((x, y) => x - y) };
+    // 同じ種類の牌が何枚かあるときは、祝儀の枚数が少ない牌から見せる（例：45566索で4-7待ちなら、56の5は一番祝儀の少ない5）
+    const val = (t) => { const fc = R.fiveColor(t); if (fc === 'rainbow') return R.BASE_VALUE['rainbow_' + R.SUIT_OF_FIVE[kindOf(t)]] || 0; if (fc) return R.BASE_VALUE[fc] || 0; return this.pocchiOf(t) ? R.BASE_VALUE.pocchi : 0; };
+    const shape = [];
+    const byKind = {};
+    for (const t of ids) (byKind[kindOf(t)] = byKind[kindOf(t)] || []).push(t);
+    for (const [k, ts] of Object.entries(byKind)) {
+      ts.sort((x, y) => val(x) - val(y) || x - y);
+      shape.push(...ts.slice(0, Math.max(0, ts.length - hide[+k])));
+    }
+    shape.sort((x, y) => x - y);
+    return { waits, shape };
+  }
+  // 全員が見えている牌（河・鳴いた牌・ドラ表示牌）から、その種類があと何枚残っているか
+  visibleCounts() {
+    const c = new Array(34).fill(0);
+    for (const ds of this.discards) for (const d of ds) if (!d.called) c[kindOf(d.tile)]++;
+    for (const ms of this.melds) for (const m of ms) for (const t of m.tiles) c[kindOf(t)]++;
+    for (const t of this.omoteIndicators()) c[kindOf(t)]++;
+    // オープンリーチで見せている待ちの形の牌も、全員に見えている
+    for (let i = 0; i < 4; i++) if (this.riichi[i].state > 0 && this.riichi[i].open) for (const t of this.openWaitInfo(i).shape) c[kindOf(t)]++;
+    return c;
+  }
+  waitsWithLeft(waits, vis, extraKind) {
+    return waits.map(k => ({ k, left: Math.max(0, 4 - vis[k] - (extraKind === k ? 1 : 0)) }));
+  }
+  // 自分の番：どの牌を切ると何待ちになるか（種類ごと）
+  discardWaits(seat) {
+    const out = {};
+    const vis = this.visibleCounts();
+    const kinds = this.closedKinds(seat);
+    for (const k of new Set(kinds)) {
+      const rest = kinds.slice(); rest.splice(rest.indexOf(k), 1);
+      const w = this.waitsOf(seat, rest);
+      if (w.length) out[k] = this.waitsWithLeft(w, vis, k);
+    }
+    return out;
+  }
   isFuriten(seat) {
     if (this.furitenTemp[seat] || this.furitenRiichi[seat]) return true;
     return this.waitsOf(seat).some(k => this.discardKinds[seat].has(k));
@@ -503,6 +572,10 @@ class Game {
   tryResolveClaim() {
     const c = this.claim;
     const seats = Object.keys(c.options).map(Number);
+    // 誰かがロンしたら、ロンできない人（ポン・チーだけの人）の返事は待たない
+    if (seats.some(s => c.responses[s] && c.responses[s].type === 'ron')) {
+      for (const s of seats) if (!(s in c.responses) && !c.options[s].ron) c.responses[s] = { type: 'pass' };
+    }
     if (!seats.every(s => s in c.responses)) return;
     for (const s of seats) {
       if (c.options[s].ron && c.responses[s].type !== 'ron') {
@@ -946,7 +1019,7 @@ class Game {
         han: c.han, fu: c.fu, yaku: c.yaku, limit: c.limit, yakuman: c.yakuman, desc: c.desc,
         points: this.pointsText(c.base, isDealer, inf.tsumo), chips: c.chips, units: c.units,
         chipsDetail: { special: c.chipsDetail.special, separate: c.chipsDetail.separate, oneHan: c.chipsDetail.oneHan },
-        pao: paoSeat, dora: inf.indicators.omote, ura: inf.indicators.ura,
+        pao: paoSeat, dora: inf.indicators.omote, ura: inf.indicators.ura, wildKind: c.wildKind != null ? c.wildKind : null,
       });
     });
     this.kyotaku = 0;
@@ -1113,7 +1186,8 @@ class Game {
       players: this.players.map((p, i) => ({
         name: p.name, isBot: !!p.isBot, away: !!p.away, score: this.scores[i], chips: this.chips[i],
         wind: WIND_NAMES[(i - this.kyoku + 4) % 4], riichi: this.riichi[i].state > 0, open: this.riichi[i].open,
-        openWaits: this.riichi[i].state > 0 && this.riichi[i].open && this.phase !== 'result' ? this.waitsOf(i) : null,
+        openWaits: this.riichi[i].state > 0 && this.riichi[i].open && this.phase !== 'result' ? this.openWaitInfo(i).waits : null,
+        openShape: this.riichi[i].state > 0 && this.riichi[i].open && this.phase !== 'result' ? this.openWaitInfo(i).shape : null,
         handCount: this.hands[i].length,
       })),
       round: { wind: '東', kyoku: this.kyoku + 1, honba: this.honba, kyotaku: this.kyotaku, kyotakuChips: this.kyotakuChips, dealer: this.kyoku, title: this.message },
@@ -1129,6 +1203,8 @@ class Game {
       lastDiscard: this.lastDiscard,
       actions: seat >= 0 ? this.actionsFor(seat) : null,
       waits: seat >= 0 && this.phase !== 'result' && this.hands[seat].length % 3 === 1 ? this.waitsOf(seat) : [],
+      waitsLeft: seat >= 0 && this.phase !== 'result' && this.hands[seat].length % 3 === 1 ? this.waitsWithLeft(this.waitsOf(seat), this.visibleCounts()) : [],
+      discardWaits: seat >= 0 && this.phase === 'discard' && this.turn === seat && this.hands[seat].length % 3 === 2 ? this.discardWaits(seat) : null,
       furiten: seat >= 0 && this.hands[seat].length % 3 === 1 ? this.isFuriten(seat) : false,
       claimTile: this.phase === 'claim' && this.claim ? this.claim.tile : null,
       result: this.phase === 'result' ? this.result : null,

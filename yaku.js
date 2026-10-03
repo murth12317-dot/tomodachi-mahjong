@@ -310,8 +310,8 @@ function evaluate(ctx) {
     }
     const yakuList = ymCount > 0 ? c.yakuman.map(([n, v]) => [n, v * 13]) : c.yaku.slice();
     if (ymCount === 0 && hasYaku) {
-      if (dora) yakuList.push(['ドラ', dora]);
-      if (ctx.akaCount) yakuList.push(['特殊牌ドラ', ctx.akaCount]);
+      // 表ドラと特殊牌（赤・金・青・虹など）のドラは、まとめて「ドラ」と表示する
+      if (dora + (ctx.akaCount || 0)) yakuList.push(['ドラ', dora + (ctx.akaCount || 0)]);
       if (ura) yakuList.push(['裏ドラ', ura]);
       han += dora + (ctx.akaCount || 0) + ura;
     }

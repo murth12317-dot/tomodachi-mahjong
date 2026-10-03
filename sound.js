@@ -35,7 +35,22 @@ window.SFX = (function () {
     f.type = 'bandpass'; f.frequency.value = 2200; g.gain.value = 0.5;
     s.buffer = buf; s.connect(f); f.connect(g); g.connect(c.destination); s.start();
   }
+  // シュッという風切り音（ノイズを高い方へ流す）
+  function swish() {
+    const c = ac(); if (!c) return;
+    const len = Math.floor(c.sampleRate * 0.18);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) { const x = i / len; d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * x) * (1 - x * 0.5); }
+    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(900, c.currentTime); f.frequency.exponentialRampToValueAtTime(5200, c.currentTime + 0.16);
+    g.gain.value = 0.45;
+    s.buffer = buf; s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+  }
   const SOUNDS = {
+    swish: () => swish(),                                                     // 役が1行ずつ出る
+    stamp: () => { tone(196, 0, 0.35, 'sine', 0.3); [784, 988, 1318].forEach((f, i) => tone(f, 0.04 + i * 0.06, 0.4, 'triangle', 0.16)); }, // 満貫などのドン
     turn: () => { tone(880, 0, 0.12); tone(1320, 0.1, 0.18); },            // 自分の番
     alert: () => { tone(1046, 0, 0.1, 'triangle', 0.22); tone(1046, 0.14, 0.1, 'triangle', 0.22); }, // 鳴ける・選択
     discard: () => click(),                                                   // 打牌

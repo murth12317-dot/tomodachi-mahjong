@@ -209,8 +209,12 @@ table.sc td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- 新ルール用 ---- */
 .side .lbl .chip { font-size: 11px; color: var(--accent); }
-.openWaits { position: absolute; left: 213px; top: 372px; display: flex; gap: 2px; align-items: center; font-size: 10px; color: #ffb4a8; z-index: 4; }
-.openWaits .tile { --w: 14px; }
+.openWaits { position: absolute; left: 398px; top: 398px; width: 156px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 800; color: #ffd0c4; z-index: 4;
+  background: rgba(0,0,0,.45); border: 1px solid rgba(255,140,120,.6); border-radius: 8px; padding: 4px 6px; }
+.openWaits .ows { display: flex; flex-wrap: wrap; gap: 1px; align-items: flex-end; }
+.openWaits .ows .tile { --w: 22px; }
+.openWaits .oww { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; color: #ffe08a; }
+.openWaits .oww .tile { --w: 16px; }
 .cands { display: flex; flex-direction: column; gap: 8px; }
 button.cand { text-align: left; background: #173f31; border: 1px solid #2e7059; display: flex; flex-direction: column; gap: 4px; }
 button.cand .ct { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -305,7 +309,7 @@ body.fx-shake3 #table, body.fx-shake3 #modal { animation: fxShakeBig .25s 12; }
 @keyframes pocchiGlow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15) drop-shadow(0 0 calc(var(--w) * .18) var(--pc)); } }
 @media (prefers-reduced-motion: reduce) { .tile.pocchi { animation: none; } }
 /* 切る牌の選択（ダブルタップで切る） */
-#hand .tile.sel { transform: translateY(calc(var(--w) * -.45)) scale(1.22); z-index: 3; box-shadow: 0 0 0 3px var(--accent), 0 0 14px rgba(255,210,90,.8), 0 calc(var(--w) * .07) 0 var(--tile-side); }
+#hand .tile.sel { transform: translateY(calc(var(--w) * -.4)); z-index: 3; } /* 選んだ牌は上げるだけ（光らせない） */
 #seats .tag.ok { background: #2e8b57; color: #fff; }
 #seats .tag.wait { background: #5a4a1a; color: #ffd873; }
 #btnReady { width: 100%; margin-top: 6px; }
@@ -461,3 +465,77 @@ body.landscape .stage .ura { transform: translateY(calc(30px * 1.36 + 14px)); }
 @keyframes uraPullL { 0% { transform: translateY(4px) translateZ(-1px); } 100% { transform: translateY(calc(30px * 1.36 + 14px)); } }
 /* 虹の効果を持つ6：虹色に光る */
 .wtiles .tile.rbHit { box-shadow: 0 0 0 2px #fff, 0 0 10px 3px #ff5e7e, 0 0 16px 6px #ffd94d, 0 0 22px 9px #5ee0ff, inset 0 calc(var(--w) * -.06) 0 var(--tile-edge) !important; }
+/* 和了の最後：「満貫 8000点」 */
+#modalBody .finale { display: flex; align-items: baseline; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+#modalBody .finale .finPts { font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 0 14px rgba(255,210,90,.7), 0 3px 0 rgba(0,0,0,.45); font-variant-numeric: tabular-nums; }
+#modalBody .total.sm { font-size: 13px; font-weight: 700; color: var(--muted); text-shadow: none; }
+#modalBody .yakulist { font-size: 16px; }
+/* オープンリーチの表示は、誰の席でも文字が読める向きに */
+.side[data-rel="1"] .openWaits { transform: rotate(90deg); }
+.side[data-rel="2"] .openWaits { transform: rotate(180deg); }
+.side[data-rel="3"] .openWaits { transform: rotate(-90deg); }
+
+/* ===== 横向きの結果画面：2列でスクロールなし ===== */
+body.landscape #modal { padding: 6px; }
+#modalBody.land2 { width: min(840px, 100%); padding: 10px 14px; gap: 6px; }
+#modalBody.land2 > h2, #modalBody.land2 .win h2 { font-size: 18px; padding: 3px 10px; }
+#modalBody.land2 .lcols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; min-height: 0; }
+#modalBody.land2 .lcol, #modalBody.land2 .rcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-height: calc(var(--appH, 100vh) - 80px); overflow-y: auto; overscroll-behavior: contain; }
+#modalBody.land2 .rcol { justify-content: flex-end; }
+#modalBody.land2 .win { gap: 5px; }
+#modalBody.land2 .stage { height: 92px; margin: 0; }
+#modalBody.land2 .yakulist { font-size: 14px; gap: 0 12px; }
+#modalBody.land2 .finale { margin: 0; }
+#modalBody.land2 .stamp { font-size: 36px; }
+#modalBody.land2 .finale .finPts { font-size: 26px; }
+#modalBody.land2 table.sc { font-size: 13px; }
+#modalBody.land2 table.sc td { padding: 3px 4px; }
+#modalBody.land2 .sticky { position: static; margin: 0; }
+#modalBody.land2 .skip { position: absolute; right: 18px; top: 8px; margin: 0; z-index: 3; }
+#modalBody.land2 .tenpaiHands { gap: 3px; font-size: 13px; }
+#modalBody.land2 { position: relative; }
+#modalBody.land2 .rcol { justify-content: flex-start; }
+#modalBody.land2 .yakulist { grid-template-columns: 1fr auto 1fr auto; gap: 0 10px; font-size: 13px; }
+#modalBody.land2 .finale { gap: 10px; flex-wrap: nowrap; }
+#modalBody.land2 .stamp { font-size: 30px; white-space: nowrap; }
+#modalBody.land2 .finale .finPts { font-size: 22px; white-space: nowrap; }
+#modalBody.land2 .chipline { font-size: 14px; }
+#modalBody.land2 .total.sm { margin-top: -4px; }
+/* 横向きでは盤が小さくなるので、ほかの人の手牌と鳴いた牌を大きめに */
+body.landscape .ohand { left: 14px; right: 14px; top: 548px; gap: 8px; }
+body.landscape .ohand .tile { --w: 24px; }
+body.landscape .ohand .ms .tile { --w: 34px; }
+#modalBody.land2 .finale { flex-wrap: wrap; justify-content: center; row-gap: 0; }
+#modalBody.land2 .rcol { padding-top: 26px; }
+/* 祝儀の枚数を大きく */
+#modalBody .finChips { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
+#modalBody .finChips .fcl { font-size: 18px; font-weight: 800; color: var(--accent); }
+#modalBody .finChips .fcn { font-size: 34px; font-weight: 900; color: #ffd84a; text-shadow: 0 0 14px rgba(255,200,60,.6), 0 3px 0 rgba(0,0,0,.45); font-variant-numeric: tabular-nums; }
+#modalBody .finChips .fca { font-size: 18px; font-weight: 800; color: #ffe9a0; }
+#modalBody .chipline { font-size: 12px; font-weight: 700; color: var(--muted); }
+#modalBody.land2 .finChips .fcn { font-size: 24px; }
+#modalBody.land2 .finChips .fcl, #modalBody.land2 .finChips .fca { font-size: 15px; }
+/* 祝儀が多いときの枠：30枚以上は金、50枚以上は虹（祝儀の枚数が出たときに変わる） */
+#modalBody.frGold { animation: modalIn .35s cubic-bezier(.2,1.3,.4,1) both, frGold .5s ease-out var(--frDelay, 0s) both; }
+@keyframes frGold { from { border-color: rgba(255,210,90,.55); } to { border-color: #ffd23f; border-width: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 26px 6px rgba(255,200,40,.75), inset 0 0 18px rgba(255,200,40,.35); } }
+#modalBody.frRainbow { animation: modalIn .35s cubic-bezier(.2,1.3,.4,1) both, frRainbowOn .01s linear var(--frDelay, 0s) both, frRainbow 1.6s linear var(--frDelay, 0s) infinite; }
+@keyframes frRainbowOn { to { border-width: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 30px 8px rgba(255,255,255,.35); } }
+@keyframes frRainbow {
+  0% { border-color: #ff4d6d; box-shadow: 0 0 28px 6px rgba(255,77,109,.7); }
+  20% { border-color: #ffb84d; box-shadow: 0 0 28px 6px rgba(255,184,77,.7); }
+  40% { border-color: #f6ff4d; box-shadow: 0 0 28px 6px rgba(246,255,77,.7); }
+  60% { border-color: #4dff88; box-shadow: 0 0 28px 6px rgba(77,255,136,.7); }
+  80% { border-color: #4db8ff; box-shadow: 0 0 28px 6px rgba(77,184,255,.7); }
+  100% { border-color: #b84dff; box-shadow: 0 0 28px 6px rgba(184,77,255,.7); } }
+/* 待ちと残り枚数 */
+#status { flex-wrap: wrap; }
+#status .wl { display: inline-flex; align-items: flex-end; gap: 1px; }
+#status .wl .wn { font-size: 13px; font-weight: 900; color: #ffe08a; }
+#status .wl.none { opacity: .45; }
+#status .wsum { font-weight: 800; color: #fff; }
+/* 切るとテンパイになる牌：上に小さな▲ */
+#hand .tile.tcut::after { display: block !important; width: auto !important; height: auto !important; background: none !important; border-radius: 0 !important; right: auto !important; content: '▲'; position: absolute; top: calc(var(--w) * -.04); left: 50%; transform: translateX(-50%); font-size: calc(var(--w) * .32); color: #ffd84a; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+body.landscape #status { background: rgba(0,0,0,.55); border-radius: 8px; padding: 3px 8px; }
+body.landscape #status:empty { display: none; }
+body.landscape #me { overflow: visible; }
+#hand .tile.tcut::after { color: #ff9d1a !important; text-shadow: 0 0 2px #fff, 0 1px 2px rgba(0,0,0,.5) !important; z-index: 2; }
