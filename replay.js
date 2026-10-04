@@ -116,6 +116,7 @@
     sl.oninput = () => { stop(); go(+sl.value); };
     panel.append(sl, h('div', 'sub rp-pos', `${RP.si + 1} / ${hand.steps.length} 手`));
     box.append(panel);
+    if (window.fitNoScroll) setTimeout(window.fitNoScroll, 0);
   }
   window.openReplay = open;
 

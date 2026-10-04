@@ -30,7 +30,7 @@ let lastDrawnAnim = null;
 let myMeldCount = null;
 let resultSeenAt = null, modalDelay = null;
 const uraStart = new Map(); // 和了ごとの演出開始時刻（状態が送り直されても同じ和了なら続きから）
-const agariKey = (R) => JSON.stringify([S && S.round, R.wins.map(w => [w.seat, w.tile, w.points, w.ura])]);
+const agariKey = (R) => JSON.stringify([S && S.gid, S && S.round, R.wins.map(w => [w.seat, w.tile, w.points, w.ura])]);
 const finalShown = new WeakSet();
 // （旧）裏ドラの平面めくりは和了演出の王牌の台に置き換え
  // ツモった牌のアニメーション用 // ダブルタップで切るための選択中の牌
@@ -63,13 +63,16 @@ function show(id) {
 // ================= 接続 =================
 function onRoom(data) {
   ROOM = data;
-  if (!ROOM.started) { S = null; prevS = null; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
+  if (!ROOM.started) { S = null; prevS = null; $('#noCall').checked = false; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
 }
 function onState(data) {
   prevS = S; S = data; busy = false;
   // 鳴きなしは次の局に引き継がない
-  if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false; // サーバー側も局ごとに解除される
+  // （次の半荘に入ったときもずれないよう、サーバーの状態に合わせる）
+  if (!prevS || prevS.gid !== S.gid || prevS.round.title !== S.round.title) myMeldCount = null; // 局・半荘が変わったら鳴きの演出の数え直し
+  if (typeof S.noCall === 'boolean') $('#noCall').checked = S.noCall;
+  else if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false;
   // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
   if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
@@ -179,6 +182,7 @@ function renderRoom() {
     $('#btnReady').textContent = mine.ready ? '準備OKを取り消す' : '準備OK';
     $('#btnReady').className = mine.ready ? 'ghost' : 'primary';
   }
+  setTimeout(fitNoScroll, 0);
   if (ROOM.isHost) {
     const full = ROOM.seats.every(Boolean);
     const waiting = ROOM.seats.filter(s => s && !s.ready);
@@ -280,7 +284,7 @@ function renderTable() {
 let animMem = null;
 function renderBoard() {
   const b = $('#board'); b.innerHTML = '';
-  const memKey = S.round.title;
+  const memKey = `${S.gid}|${S.round.title}`;
   const mem = animMem && animMem.key === memKey ? animMem : null;
   const nowMem = { key: memKey, d: S.discards.map(x => x.length), m: S.melds.map(x => x.length), r: S.players.map(p => p.riichi) };
   const c = h('div', 'center');
@@ -291,6 +295,11 @@ function renderBoard() {
   for (let i = 0; i < 5; i++) { const t = tileEl(i < S.dora.length ? S.dora[i] : null); t.style.setProperty('--w', '17px'); dora.append(t); }
   c.append(dora);
   b.append(c);
+  // 横向き：ドラ表示は左上に大きく出す（枠は4つ。5枚目がめくれたら5つ）
+  let db = $('#doraBox');
+  if (!db) { db = h('div', ''); db.id = 'doraBox'; $('#boardWrap').append(db); }
+  db.innerHTML = ''; db.append(h('span', 'dl', 'ドラ'));
+  for (let i = 0; i < Math.max(4, S.dora.length); i++) db.append(tileEl(i < S.dora.length ? S.dora[i] : null));
 
   for (let seat = 0; seat < 4; seat++) {
     const r = rel(seat);
@@ -509,6 +518,8 @@ function countdown(el, deadline, prefix) {
 const chipText = (n) => `${n > 0 ? '+' : ''}${n}枚`;
 
 // 部屋の成績（合計と1回ごと）
+let histPage = 0, histOpen = false;
+function rerenderHist() { if (S && S.gameOver && !$('#modal').classList.contains('hidden')) renderModal(); else if (ROOM) renderRoom(); setTimeout(fitNoScroll, 0); }
 function renderHistory(box) {
   const hist = (ROOM && ROOM.history) || [];
   if (!hist.length) return;
@@ -533,13 +544,25 @@ function renderHistory(box) {
   sec.append(tb);
   const det = h('details', 'histDetail');
   det.append(h('summary', '', '1回ごとの成績'));
-  for (const g of hist.slice().reverse()) {
+  det.open = histOpen; det.addEventListener('toggle', () => { histOpen = det.open; });
+  // 1回ごとの成績は4回分ずつ（スクロールしないように、前へ・次へで切り替える）
+  const all = hist.slice().reverse(), per = 4, pages = Math.ceil(all.length / per);
+  if (histPage >= pages) histPage = pages - 1;
+  if (pages > 1) {
+    const nav = h('div', 'histNav');
+    const prev = h('button', 'small', '◀ 新しい回'); prev.disabled = histPage <= 0; prev.onclick = (e) => { e.preventDefault(); histPage--; rerenderHist(); };
+    const next = h('button', 'small', '前の回 ▶'); next.disabled = histPage >= pages - 1; next.onclick = (e) => { e.preventDefault(); histPage++; rerenderHist(); };
+    nav.append(prev, h('span', 'sub', `${histPage + 1} / ${pages}`), next);
+    det.append(nav);
+  }
+  const grid = h('div', 'histGrid'); det.append(grid);
+  for (const g of all.slice(histPage * per, histPage * per + per)) {
     const d = new Date(g.at);
     const no = h('div', 'histNo', `第${g.no}回（${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}）`);
     const rb = h('button', 'small ghost', '牌譜を見る');
     rb.onclick = () => window.openReplay && window.openReplay(g.no, g.names);
     no.append(' ', rb);
-    det.append(no);
+    const gb = h('div', 'histGame'); gb.append(no);
     const t = h('table', 'sc');
     g.rows.forEach(r => {
       const tr = h('tr');
@@ -547,7 +570,7 @@ function renderHistory(box) {
         h('td', 'num ' + (r.chips >= 0 ? 'plus' : 'minus'), chipText(r.chips)));
       t.append(tr);
     });
-    det.append(t);
+    gb.append(t); grid.append(gb);
   }
   sec.append(det);
   box.append(sec);
@@ -603,13 +626,13 @@ function renderModal() {
   if (S.phase !== 'result' || !S.result) { m.classList.add('hidden'); resultSeenAt = null; return; }
   // 和了の「ロン」「ツモ」の演出を見せてから結果を出す
   // 同じ結果なら、状態が送り直されても（誰かがOKを押しても）出し直さない
-  const RK = JSON.stringify([S.round, S.result.type, S.result.reason, S.result.delta]);
+  const RK = JSON.stringify([S.gid, S.round, S.result.type, S.result.reason, S.result.delta]);
   if (resultSeenAt === null || resultSeenAt.r !== RK) resultSeenAt = { r: RK, t: Date.now() };
   const wait = S.result.type === 'agari' ? 1100 - (Date.now() - resultSeenAt.t) : 0;
   if (wait > 0) { m.classList.add('hidden'); clearTimeout(modalDelay); modalDelay = setTimeout(() => { if (S && resultSeenAt && resultSeenAt.r === RK) renderModal(); }, wait); return; }
   m.classList.remove('hidden');
   body.innerHTML = '';
-  body.classList.remove('frGold', 'frRainbow', 'frBlink');
+  body.classList.remove('frGold', 'frRainbow', 'frBlink', 'gover'); body.style.zoom = '';
   const R = S.result;
   const name = (s) => S.players[s].name;
   let longest = 0, aElapsed = 0; // 和了演出の長さ（点数表はその後に出す）
@@ -786,6 +809,7 @@ function renderModal() {
     // 終局の順位表を一番上に出す（最後の局の内容はその下）
     const lastHand = [...body.childNodes];
     body.innerHTML = '';
+    body.classList.add('gover'); setTimeout(fitNoScroll, 0);
     body.append(h('h2', '', '終局'));
     const ft = h('table', 'sc');
     const fh = h('tr'); ['順位', '点数', '着順祝儀', '祝儀合計'].forEach(x => fh.append(h('td', 'hd', x))); ft.append(fh);
@@ -907,6 +931,13 @@ function fitLayout() {
     b.style.top = `${-top * scale}px`;
     b.style.transform = `translate(-50%, 0) scale(${scale})`;
     $('#boardWrap').style.flex = `0 0 ${H}px`;
+    // ドラの枠が上家の手牌にかからない大きさにする
+    const db = $('#doraBox'), oh = document.querySelector('.side[data-rel="3"] .ohand');
+    if (db && oh) {
+      let w = 28; db.style.setProperty('--dw', w + 'px');
+      const lim = oh.getBoundingClientRect().left - 8;
+      while (w > 14 && db.getBoundingClientRect().right > lim) { w--; db.style.setProperty('--dw', w + 'px'); }
+    }
   } else {
     const availH = H - meH - 4;
     const scale = Math.max(0.3, Math.min(W / 600, availH / 600));
@@ -920,8 +951,27 @@ function fitLayout() {
 function setAppHeight() {
   const hgt = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
   document.documentElement.style.setProperty('--appH', Math.round(hgt) + 'px');
+  // スマホ横向き（ロビー・待合室・牌譜でも使う）
+  const W = document.documentElement.clientWidth;
+  document.body.classList.toggle('wide', W > hgt * 1.25 && hgt < 700);
+  fitNoScroll();
+}
+// 横向きでは画面をスクロールさせない：入りきらないときは中身を少し縮めて収める
+function fitNoScroll() {
+  const wide = document.body.classList.contains('wide');
+  const H = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const targets = [['#lobby .card', 16], ['#room .card', 16], ['#modalBody.gover', 24], ['#replay .rp-panel', 8]];
+  for (const [sel, pad] of targets) {
+    const el = document.querySelector(sel); if (!el) continue;
+    el.style.zoom = 1;
+    if (!wide || !el.getClientRects().length) continue;
+    const need = el.scrollHeight, avail = H - pad;
+    if (need > avail) el.style.zoom = Math.max(0.5, (avail / need) * 0.98).toFixed(3);
+  }
 }
 setAppHeight();
+// 「1回ごとの成績」などを開いたときも、画面に収まるように縮め直す
+document.addEventListener('toggle', () => fitNoScroll(), true);
 window.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { setAppHeight(); fitLayout(); });
 window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeight(); fitLayout(); }, 300));

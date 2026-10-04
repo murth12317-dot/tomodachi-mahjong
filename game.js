@@ -39,6 +39,7 @@ class Game {
    */
   constructor(players, opts, onUpdate) {
     this.players = players.map(p => ({ ...p }));
+    this.gid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); // 半荘ごとの目印（画面側で前の半荘と区別する）
     this.onUpdate = onUpdate || (() => {});
     this.seed = opts && opts.seed != null ? opts.seed : null;
     this.scores = [START_POINTS, START_POINTS, START_POINTS, START_POINTS];
@@ -1252,6 +1253,8 @@ class Game {
         handCount: this.hands[i].length,
       })),
       round: { wind: '東', kyoku: this.kyoku + 1, honba: this.honba, kyotaku: this.kyotaku, kyotakuChips: this.kyotakuChips, dealer: this.kyoku, title: this.message },
+      gid: this.gid,
+      noCall: !!(seat >= 0 && this.noCall[seat]), // 鳴きなし（サーバーの状態を画面のチェックに合わせる）
       wall: this.live.length,
       dora: this.omoteIndicators(),
       pocchiKinds: [...this.pocchiKinds],
