@@ -189,11 +189,11 @@ console.log('シナリオテスト OK');
   });
   assert.strictEqual(g.actionsFor(0).wild, 'chun');
   g.act(0, { type: 'tsumo' });
-  assert.strictEqual(g.phase, 'choose');
-  const best = g.choose.cands[g.choose.defaultIndex];
-  assert.ok(best.desc.includes('→虹'), best.desc); // 変換した方が祝儀が多い
-  g.act(0, { type: 'choose' });
-  assert.ok(g.result.wins[0].units.some(u => u.includes('変換')));
+  // 祝儀も点数も一番の取り方があれば選ぶ画面を出さずに自動で決まる
+  if (g.phase === 'choose') g.act(0, { type: 'choose' });
+  const w = g.result.wins[0];
+  assert.ok(w.desc.includes('→虹'), w.desc); // 変換した方が祝儀が多い
+  assert.ok(w.units.some(u => u.includes('変換')));
 }
 // ドラ表示牌が赤5索なら6索は赤牌扱い（R-31）
 {
@@ -320,11 +320,14 @@ console.log('シナリオテスト4 OK');
   };
   const g1 = mk(true);
   const c1 = g1.winCandidates(0,132,true,{wild:'chun'});
-  assert.ok(c1.length && c1.every(c => c.conversions.length === 1 && c.conversions[0].suit === 's'), JSON.stringify(c1.map(c=>c.desc)));
+  // 5として取った中ぽっち自身を虹にする取り方もある（その5と同じ種類の虹）
+  const okConv = (c) => c.conversions.every(v => v.self ? v.suit === R.SUIT_OF_FIVE[c.wildKind] : v.suit === 's');
+  assert.ok(c1.length && c1.every(c => c.conversions.length === 1 && okConv(c)), JSON.stringify(c1.map(c=>c.desc)));
+  assert.ok(c1.some(c => !c.conversions[0].self), JSON.stringify(c1.map(c=>c.desc))); // 金5索→虹5索
   assert.strictEqual(g1._lastIndicators.omote.length, 1); // 変える5があるので追加の槓ドラなし
   const g2 = mk(false);
   const c2 = g2.winCandidates(0,132,true,{wild:'chun'});
-  assert.ok(c2.length && c2.every(c => c.conversions.length === 0), JSON.stringify(c2.map(c=>c.desc)));
+  assert.ok(c2.length && c2.every(c => c.conversions.every(v => v.self) && okConv(c)), JSON.stringify(c2.map(c=>c.desc))); // 手牌の5はないので、変えられるのは中ぽっち自身だけ
   assert.strictEqual(g2._lastIndicators.omote.length, 2); // 変える5がないので追加の槓ドラ
   console.log('中ぽっちの虹変換 OK');
 }
