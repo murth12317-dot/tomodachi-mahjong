@@ -332,6 +332,43 @@ console.log('シナリオテスト4 OK');
   console.log('中ぽっちの虹変換 OK');
 }
 
+{ // 裏ドラ表示牌が倍ぽっち：5を虹に変え、さらに一番多い牌が裏ドラ（中ぽっちツモと重なったら両方）
+  const { Game } = require('../game');
+  const mk = (kinds, special, winTile) => {
+    const g = new Game([0,1,2,3].map(()=>({name:'P',isBot:true})),{},()=>{});
+    const used = new Set([...special, 124, winTile]);
+    const ids = kinds.map(k => { for (let i = 0; i < 4; i++) { const id = k * 4 + (i + 1) % 4; if (!used.has(id)) { used.add(id); return id; } } });
+    for (const arr of [g.live, g.dead, ...g.hands]) for (let i = arr.length - 1; i >= 0; i--) if (used.has(arr[i])) arr.splice(i, 1);
+    g.dead.splice(9, 0, 124); // 裏ドラ表示牌＝倍ぽっち
+    g.hands[0] = [...special, ...ids, winTile]; g.drawn = winTile; g.riichi[0].state = 1; g.hasDiscarded = [true,true,true,true];
+    return g;
+  };
+  const best = (cs) => cs[Game.defaultIndex(cs)];
+  const hasUraTon = (c) => c.yaku.some(y => y[0] === '裏ドラ' && y[1] >= 2) && c.desc.includes('裏ドラ=東');
+  // ふつうのツモ：赤5萬→虹5萬 と 裏ドラ=東 の両方
+  {
+    const g = mk([5,6, 12,13,14, 24,25,26, 19,20, 27,27], [16], 21 * 4 + 1);
+    const c = best(g.winCandidates(0, 21 * 4 + 1, true));
+    assert.ok(c.conversions.length === 1 && hasUraTon(c), c.desc);
+  }
+  // 中ぽっちツモ：中ぽっちと倍ぽっちで別々の5を虹に（同じ種類の虹は不可）＋裏ドラ=東
+  {
+    const g = mk([5,6, 12,13,14, 24,25,26, 19,20, 27,27], [16], 132);
+    const cs = g.winCandidates(0, 132, true, { wild: 'chun' });
+    const c = best(cs);
+    assert.ok(c.conversions.length === 2 && new Set(c.conversions.map(v => v.suit)).size === 2 && hasUraTon(c), c.desc);
+    assert.ok(cs.every(x => new Set(x.conversions.map(v => v.suit)).size === x.conversions.length));
+  }
+  // 中ぽっちツモ・手牌に5なし：中ぽっち自身を虹にできるのは中ぽっち側だけ。倍ぽっちは裏ドラだけ
+  {
+    const g = mk([0,1,2, 6,7,8, 24,25,26, 27,27, 11,12], [], 132);
+    const cs = g.winCandidates(0, 132, true, { wild: 'chun' });
+    assert.ok(cs.every(x => x.conversions.length <= 1 && hasUraTon(x)), JSON.stringify(cs.map(x => x.desc)));
+    assert.ok(best(cs).conversions.some(v => v.self), best(cs).desc);
+  }
+  console.log('裏ドラの倍ぽっち OK');
+}
+
 
 
 
