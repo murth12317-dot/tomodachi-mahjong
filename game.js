@@ -12,6 +12,7 @@ const RANK_CHIPS = [30, 10, -10, -30]; // 着順の祝儀（ポイントはな�
 const HONBA_POINTS = 1500;
 const COLD_POINTS = 55000;
 const CHOICE_SECONDS = 20;
+const DEALER_SECONDS = 30; // 親を続けるか流すかの選択（時間切れは続行）
 
 // 乱数の種（学習用：同じ種なら同じ山になる）
 function mulberry32(a) {
@@ -1192,7 +1193,7 @@ class Game {
     else if (info.dealerWon || (info.draw && info.dealerTenpai)) {
       result.needDealerChoice = true;
       result.dealerChoiceMade = false;
-      result.dealerDeadline = Date.now() + CHOICE_SECONDS * 1000;
+      result.dealerDeadline = Date.now() + DEALER_SECONDS * 1000;
     } else {
       // 親が流れる：子の和了は0本場、親ノーテンは+1本場
       const honba = info.draw ? this.honba + 1 : 0;

@@ -163,7 +163,7 @@ function scheduleBots(room) {
   } else if (g.phase === 'result') {
     const r = g.result;
     if (r && r.needDealerChoice && !r.dealerChoiceMade) {
-      // 親の選択：20秒で「続行」（B-19）
+      // 親の選択：30秒で「続行」（B-19）
       room.autoTimer = setTimeout(() => {
         if (g.phase === 'result' && g.result === r && !r.dealerChoiceMade) g.act(g.kyoku, { type: 'dealer', cont: true });
       }, Math.max(0, r.dealerDeadline - Date.now()));
