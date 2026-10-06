@@ -38,6 +38,7 @@ const finalShown = new WeakSet();
 const params = new URLSearchParams(location.search);
 $('#name').value = ls.get('mj_name') || '';
 if (params.get('room')) $('#code').value = params.get('room');
+if (window.SOLO) document.querySelectorAll('.statlink').forEach(a => a.classList.add('hidden'));
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -63,7 +64,6 @@ function show(id) {
 // ================= 接続 =================
 function onRoom(data) {
   ROOM = data;
-  if (window.STATS) window.STATS.recordFromRoom(ROOM); // 終わった半荘をこの端末の成績表に記録
   if (!ROOM.started) { S = null; prevS = null; $('#noCall').checked = false; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
 }
@@ -174,6 +174,7 @@ function renderRoom() {
     ul.append(li);
   });
   const hb = $('#roomHistory'); hb.innerHTML = ''; renderHistory(hb);
+  renderRate();
   if (ROOM.spectators && ROOM.spectators.length) hb.prepend(h('p', 'sub', `観戦：${ROOM.spectators.join('・')}`));
   $('#hostCtl').classList.toggle('hidden', !ROOM.isHost);
   const mine = ROOM.you >= 0 ? ROOM.seats[ROOM.you] : null;
@@ -193,9 +194,23 @@ function renderRoom() {
       : waiting.length ? `準備OK待ち（${waiting.map(s => s.name).join('・')}）` : '対局開始';
   }
 }
+// 倍率（成績表に祝儀×倍率で記録）。ルームを作った人だけが入力できる
+function renderRate() {
+  const box = $('#rateRow');
+  // 入力中に画面が書き換わっても、入れかけの数字を残す
+  const ri = $('#rate'), typing = ri && document.activeElement === ri ? ri.value : null;
+  box.innerHTML = '';
+  box.append(h('b', '', '倍率'));
+  if (ROOM.isHost) {
+    const inp = h('input'); inp.id = 'rate'; inp.type = 'number'; inp.inputMode = 'decimal'; inp.min = '0'; inp.step = 'any';
+    inp.value = typing != null ? typing : ROOM.rate;
+    inp.onchange = () => api('setRate', { rate: inp.value });
+    box.append(inp);
+    if (typing != null) inp.focus();
+  } else box.append(h('span', '', String(ROOM.rate)));
+  box.append(h('small', '', '祝儀×倍率を成績表に記録'));
+}
 $('#btnBot').onclick = () => api('addBot');
-$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open();
-$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open();
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
@@ -832,7 +847,6 @@ function renderModal() {
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
-    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open(); row.append(st); }
     if (ROOM && ROOM.solo && window.openRecordFile) {
       const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
       const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;

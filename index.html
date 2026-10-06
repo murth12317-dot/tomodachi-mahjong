@@ -29,7 +29,7 @@
       <button id="btnJoin">参加</button>
     </div>
     <p id="lobbyMsg" class="msg"></p>
-    <button id="btnStatsLobby" class="small">成績表</button>
+    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
     <label class="fileOpen small">保存した成績・牌譜を開く<input type="file" id="recordFile" accept=".json,application/json" hidden></label>
   </div>
 </section>
@@ -43,6 +43,7 @@
     <p id="roomRule" class="sub"></p>
     <ul id="seats"></ul>
     <div id="roomHistory"></div>
+    <div id="rateRow" class="raterow"></div>
     <div id="hostCtl" class="hidden">
       <div class="row">
         <button id="btnBot">CPUを追加</button>
@@ -51,8 +52,8 @@
     </div>
     <button id="btnReady" class="primary hidden">準備OK</button>
     <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
-    <button id="btnStatsRoom" class="small">成績表</button>
     <button id="btnLeave" class="small ghost">退出</button>
+    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
     <p id="roomMsg" class="msg"></p>
   </div>
 </section>
@@ -73,12 +74,6 @@
   </div>
 </section>
 
-<!-- 成績表 -->
-<section id="stats" class="hidden">
-  <div id="statsBody"></div>
-  <button id="statsBack" class="ghost">← 戻る</button>
-</section>
-
 <div id="modal" class="hidden"><div id="modalBody"></div></div>
 <div id="toast" class="hidden"></div>
 
@@ -86,7 +81,6 @@
 <script src="sound.js"></script>
 <script src="effects.js"></script>
 <script src="client.js"></script>
-<script src="stats.js"></script>
 <script src="replay.js"></script>
 </body>
 </html>

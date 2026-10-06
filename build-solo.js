@@ -39,7 +39,6 @@ ${read('public/sound.js')}
 ${read('public/effects.js')}
 ${read('public/solo.js')}
 ${read('public/client.js')}
-${read('public/stats.js')}
 ${read('public/replay.js')}
 </script>
 `;

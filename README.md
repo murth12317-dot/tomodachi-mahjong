@@ -29,8 +29,28 @@ node server.js
 4. 数分で `https://tomodachi-mahjong-xxxx.onrender.com` のようなURLができる。開いて部屋を作り、招待リンクを友達に送る
 
 ※ 無料プランは15分ほど誰も使わないと休止し、次に開いたとき起動まで少し（1分ほど）待ちます。  
-※ 部屋・成績・牌譜はサーバーのメモリにあるので、休止・再起動で消えます。残したいときは終局画面の「成績と牌譜を保存」。  
+※ 部屋・牌譜はサーバーのメモリにあるので、休止・再起動で消えます（成績表の記録は GitHub に残ります）。牌譜も残したいときは終局画面の「成績と牌譜を保存」。  
 ※ GitHub のファイルを更新すると、Render が自動で新しい版に入れ替えます（対局中の部屋は消えます）。
+
+## 成績表（みんなで見られる管理表）
+
+半荘が終わるたびに、結果が GitHub リポジトリの `data` ブランチ（`records/YYYY-MM.json`）に自動で保存され、
+`https://（このアプリのURL）/stats` の成績表ページで週ごと（日曜はじまり）の通算と、ルーム・倍率ごとの内訳が見られます。「Excel保存」で .xlsx もダウンロードできます。
+表の形は `stats.html` で作っているので、ルールが変わってもこのファイルを直すだけで過去の記録ごと表示が変わります。
+ロビーと待合室の「成績表を見る」から開けます（一人打ちのページには出ません）。
+
+設定（最初の1回だけ）
+1. GitHub の「Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token」
+   - Repository access：Only select repositories → このリポジトリ
+   - Permissions → Repository permissions → Contents：Read and write
+2. できたトークン（`github_pat_…`）を Render の環境変数 `GITHUB_TOKEN` に入れて保存
+3. 別のリポジトリに保存するときは `GITHUB_REPO`（例：`owner/repo`）も入れる
+
+- 倍率：待合室の「倍率」（部屋を作った人が入力）が、記録の「倍率」「祝儀×倍率」に入ります。倍率は対局を始めたときの値で記録します
+- 場代：1半荘ごとにトップから祝儀1枚×倍率を引き、「あつや」に足します（成績表の通算の集計に含まれます）。枚数と受け取る人は Render の環境変数 `FEE_CHIPS`・`FEE_TO` で変えられます（`FEE_CHIPS` を 0 にすると場代なし）。記録した時点の値で残るので、変えても過去の記録には影響しません
+- 記録の修正は `data` ブランチの `records/YYYY-MM.json` を直接直せば、1分以内に成績表に反映されます
+- `data` ブランチへの書き込みでは Render は再デプロイされません
+- トークンの期限が切れると保存が止まります（Render のログに `records failed` と出ます）。作り直して入れ替えてください
 
 ## iPhone でアプリのように使う（無料）
 1. Safari で公開したURLを開く
@@ -40,9 +60,11 @@ node server.js
 
 ## ファイル構成
 - `server.js` … HTTPサーバー（部屋管理・通信。Server-Sent Events + POST）
+- `records.js` … 成績を GitHub の data ブランチに保存する
+- `stats.html` … 成績表ページ（/stats）
 - `game.js` … 対局エンジン（配牌・鳴き・リーチ・流局・半荘進行）と CPU
 - `yaku.js` … 和了判定・役・符・点数計算
-- `public/` … 画面（HTML/CSS/JS）。`stats.js` は成績表（終わった半荘を端末に記録し、週ごとの集計・CSV保存）
+- `public/` … 画面（HTML/CSS/JS）
 - `test/test.js` … テスト（`npm test`：役・点数のテスト + CPU同士40局の自動対局）
 
 ## 実装上の判断（定義書に書かれていない部分）

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>友達麻雀 成績表</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{ --bg1:#0f3135; --bg2:#061518; --panel:rgba(8,20,22,.9); --line:rgba(255,255,255,.1); --gold:#f0c65e; --text:#f3f6f1; --muted:#a8c4bb; --pos:#5fe0a0; --neg:#ff8a7a; }
+*{box-sizing:border-box}
+html{background:var(--bg2)}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,var(--bg1),var(--bg2));background-attachment:fixed;color:var(--text);font-family:"Zen Kaku Gothic New",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:860px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 40px}
+h1{font-family:"Shippori Mincho B1",serif;color:var(--gold);font-size:26px;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+select,button{font:inherit;font-weight:700;border-radius:10px;border:1px solid var(--line);padding:9px 12px;font-size:15px}
+select{background:rgba(255,255,255,.08);color:var(--text);flex:1;min-width:0}
+select option{color:#000}
+button{background:linear-gradient(180deg,#f6d77e,#d9a845);color:#2a1d05;border:0;cursor:pointer;white-space:nowrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 12px;margin:0 0 14px}
+.card h2{font-size:15px;color:var(--gold);margin:0 0 8px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;color:var(--muted);font-weight:700;text-align:right;padding:4px 3px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 3px;text-align:right;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap;font-weight:700}
+th:first-child,td:first-child{text-align:left}
+td:first-child{white-space:normal;word-break:break-all;min-width:4em}
+td.pos{color:var(--pos)} td.neg{color:var(--neg)} td.zero{color:var(--muted)}
+td.big{font-size:15px}
+.sec{font-size:13px;color:var(--muted);font-weight:700;margin:18px 4px 8px;display:flex;align-items:center;gap:8px}
+.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+.when{color:var(--muted);font-size:12px;font-weight:700;margin:-4px 0 6px}
+.empty{color:var(--muted);text-align:center;padding:24px 0;font-weight:700}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+a{color:var(--gold)}
+</style>
+</head>
+<body>
+<main>
+  <h1>友達麻雀 成績表</h1>
+  <p class="sub" id="sub">読み込み中…（サーバーが寝ていると1分ほどかかります）</p>
+  <div class="bar"><select id="week" aria-label="週を選ぶ"></select><button id="xlsx" type="button">Excel保存</button></div>
+  <div id="out"></div>
+  <p class="note"><a href="/">← ゲームに戻る</a></p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// 表の形はこのページで作る（ルールが変わったらここを直せば過去の記録ごと表示が変わる）
+// 週は日曜はじまり・日本時間
+const JST = 9 * 3600e3, DAY = 864e5;
+const jst = iso => new Date(new Date(iso).getTime() + JST); // UTC のメソッドで日本時間の値が読める
+const pad = n => String(n).padStart(2, "0");
+const fmtAt = iso => { const d = jst(iso); return `${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+function weekOf(iso) {
+  const d = jst(iso), day = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const start = new Date(day - d.getUTCDay() * DAY), end = new Date(start.getTime() + 6 * DAY);
+  const md = x => `${x.getUTCMonth() + 1}/${x.getUTCDate()}`;
+  return { key: start.toISOString().slice(0, 10), label: `${start.getUTCFullYear()}/${md(start)}〜${md(end)}` };
+}
+const round = v => Math.round(v * 1000) / 1000;
+// 場代：記録に fee（祝儀の枚数）があれば、トップから fee×倍率 を引く（受け取る人 feeTo には通算で足す）
+const feeOf = g => round((g.fee || 0) * (g.rate || 1));
+const amountOf = (g, p) => round(p.chips * (g.rate || 1) - (p.rank === 1 ? feeOf(g) : 0));
+const cls = v => v > 0 ? "pos" : v < 0 ? "neg" : "zero";
+const sg = v => v > 0 ? "+" + v.toLocaleString() : v < 0 ? "-" + (-v).toLocaleString() : "±0";
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// withFee：場代を受け取る人の分も足す（週の通算だけ。内訳の表は打った分だけ）
+function totals(games, withFee) {
+  const by = {};
+  for (const g of games) for (const p of g.players) {
+    const t = by[p.name] = by[p.name] || { name: p.name, games: 0, ranks: [0, 0, 0, 0], chips: 0, amount: 0 };
+    t.games++; t.ranks[p.rank - 1]++; t.chips += p.chips; t.amount = round(t.amount + amountOf(g, p));
+  }
+  if (withFee) for (const g of games) if (g.fee && g.feeTo) {
+    const t = by[g.feeTo] = by[g.feeTo] || { name: g.feeTo, games: 0, ranks: [0, 0, 0, 0], chips: 0, amount: 0 };
+    t.amount = round(t.amount + feeOf(g));
+  }
+  return Object.values(by).sort((a, b) => b.amount - a.amount || b.chips - a.chips);
+}
+
+let WEEKS = [];
+function render() {
+  const w = WEEKS.find(x => x.key === document.getElementById("week").value);
+  const out = document.getElementById("out");
+  if (!w) { out.innerHTML = `<div class="card"><p class="empty">まだ記録がありません</p></div>`; return; }
+  const tot = totals(w.games, true);
+  // ルームと倍率が同じ半荘を1つにまとめる（間が空いても同じまとまり）。並びは最初に打った順
+  // 時間帯：そのまとまりの半荘が続けて打たれていた間を1つの時間帯にする（間に別のまとまりが入ったら区切る）
+  const blocks = [], byKey = {};
+  let prevKey = null;
+  for (const g of w.games.slice().sort((a, b) => a.at.localeCompare(b.at))) {
+    const rate = g.rate || 1, key = g.room + "|" + rate;
+    if (!byKey[key]) blocks.push(byKey[key] = { room: g.room, rate, games: [], spans: [] });
+    const b = byKey[key];
+    b.games.push(g);
+    if (prevKey === key) b.spans[b.spans.length - 1].to = g.at; else b.spans.push({ from: g.at, to: g.at });
+    prevKey = key;
+  }
+  // 時間帯の書き方：日付は変わったときだけ書く
+  const spanText = spans => { let day = ""; return spans.map(sp => {
+    const f = fmtAt(sp.from), t = fmtAt(sp.to), fd = f.slice(5, 10), td = t.slice(5, 10);
+    const from = fd === day ? f.slice(11) : f.slice(5); day = fd;
+    const to = sp.from === sp.to ? "" : "〜" + (td === day ? t.slice(11) : t.slice(5)); day = td;
+    return from + to; }).join("／"); };
+  out.innerHTML = `
+    <div class="card"><h2>${esc(w.label)} の通算（${w.games.length}半荘）</h2><div class="scroll"><table>
+      <thead><tr><th>名前</th><th>集計</th></tr></thead>
+      <tbody>${tot.map(t => `<tr><td>${esc(t.name)}</td><td class="big ${cls(t.amount)}">${sg(t.amount)}</td></tr>`).join("")}</tbody>
+    </table></div></div>
+    <h3 class="sec">内訳（ルーム・倍率ごと）</h3>
+    ${blocks.map(b => { return `
+    <div class="card"><h2>ルーム ${esc(b.room)}　倍率 ${b.rate}（${b.games.length}半荘）</h2>
+      <p class="when">${spanText(b.spans)}</p>
+      <div class="scroll"><table>
+      <thead><tr><th>名前</th><th>半荘</th><th>1着</th><th>2着</th><th>3着</th><th>4着</th><th>祝儀計</th><th>×倍率</th></tr></thead>
+      <tbody>${totals(b.games).map(t => `<tr><td>${esc(t.name)}</td><td>${t.games}</td><td>${t.ranks[0]}</td><td>${t.ranks[1]}</td><td>${t.ranks[2]}</td><td>${t.ranks[3]}</td><td class="${cls(t.chips)}">${sg(t.chips)}</td><td class="big ${cls(t.amount)}">${sg(t.amount)}</td></tr>`).join("")}</tbody>
+    </table></div></div>`; }).join("")}`;
+}
+
+// Excel：週ごとに1シート（左に記録、右に通算）
+function download() {
+  if (!window.XLSX) return alert("Excelの部品を読み込めませんでした。少し待ってからもう一度押してください");
+  if (!WEEKS.length) return alert("まだ記録がありません");
+  const wb = XLSX.utils.book_new();
+  for (const w of WEEKS) {
+    const rows = [["日時", "ルーム", "名前", "着順", "祝儀", "倍率", "祝儀×倍率（場代引き後）", "", "名前", "半荘", "1着", "2着", "3着", "4着", "祝儀計", "集計（場代込み）"]];
+    const recs = [];
+    for (const g of w.games.slice().sort((a, b) => a.at.localeCompare(b.at)))
+      for (const p of g.players.slice().sort((a, b) => a.rank - b.rank)) recs.push([fmtAt(g.at), g.room, p.name, p.rank, p.chips, g.rate || 1, amountOf(g, p)]);
+    const tot = totals(w.games, true).map(t => [t.name, t.games, t.ranks[0], t.ranks[1], t.ranks[2], t.ranks[3], t.chips, t.amount]);
+    for (let i = 0; i < Math.max(recs.length, tot.length); i++) rows.push([...(recs[i] || ["", "", "", "", "", "", ""]), "", ...(tot[i] || [])]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), w.label.replace(/\//g, "-").slice(0, 31));
+  }
+  XLSX.writeFile(wb, `友達麻雀成績_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+async function load() {
+  try {
+    const r = await fetch("/api/records", { cache: "no-store" });
+    const d = await r.json();
+    const byWeek = {};
+    for (const g of d.records) { const w = weekOf(g.at); (byWeek[w.key] = byWeek[w.key] || { ...w, games: [] }).games.push(g); }
+    WEEKS = Object.values(byWeek).sort((a, b) => b.key.localeCompare(a.key));
+    const sel = document.getElementById("week"), keep = sel.value;
+    sel.innerHTML = WEEKS.map(w => `<option value="${w.key}">${esc(w.label)}（${w.games.length}半荘）</option>`).join("") || `<option value="">記録なし</option>`;
+    if (WEEKS.some(w => w.key === keep)) sel.value = keep;
+    document.getElementById("sub").textContent = d.enabled ? `全${d.records.length}半荘・週は日曜はじまり` : "記録の保存先が設定されていません（GITHUB_TOKEN）";
+    render();
+  } catch (e) { document.getElementById("sub").textContent = "読み込めませんでした。少し待ってから開き直してください"; }
+}
+document.getElementById("week").addEventListener("change", render);
+document.getElementById("xlsx").addEventListener("click", download);
+load();
+</script>
+</body>
+</html>

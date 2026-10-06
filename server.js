@@ -6,11 +6,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Game, botAction } = require('./game');
+const records = require('./records');
 
 // 画面のファイルは public フォルダに置く。フォルダごとアップロードできなかった場合に備えて、
 // public がなければ server.js と同じ場所から配る（サーバー側のファイルは配らない）
 const PUBLIC = fs.existsSync(path.join(__dirname, 'public', 'index.html')) ? path.join(__dirname, 'public') : __dirname;
-const HIDDEN = new Set(['server.js', 'game.js', 'yaku.js', 'rules.js', 'package.json', 'render.yaml', 'README.md']);
+const HIDDEN = new Set(['server.js', 'game.js', 'yaku.js', 'rules.js', 'records.js', 'package.json', 'render.yaml', 'README.md']);
 const BOT_DELAY = +(process.env.BOT_DELAY || 600);
 const rooms = new Map(); // code -> room
 const clients = new Map(); // token -> { res, code }
@@ -32,11 +33,24 @@ function send(token, event, data) {
 
 const pidOf = (token) => crypto.createHash('sha256').update(String(token)).digest('hex').slice(0, 10);
 
+// 成績ページ用に、半荘の生の結果を保存する（records.js → GitHub の data ブランチ）
+// 場代：1半荘ごとにトップから祝儀 FEE_CHIPS 枚（×倍率）を引き、FEE_TO の人に足す。記録した時点の値で残す
+const FEE_CHIPS = +(process.env.FEE_CHIPS ?? 1), FEE_TO = process.env.FEE_TO || 'あつや';
+function saveRecord(room) {
+  const g = room.game;
+  records.add({
+    id: room.gameKey, at: new Date().toISOString(), room: room.code, rate: room.gameRate || 1,
+    ...(FEE_CHIPS > 0 ? { fee: FEE_CHIPS, feeTo: FEE_TO } : {}),
+    players: g.gameOver.slice().sort((a, b) => a.seat - b.seat).map(r => ({ name: r.name, rank: r.rank, score: r.score, chips: r.chips, cpu: !!room.seats[r.seat].isBot })),
+  });
+}
+
 // 対局が終わったら部屋の成績に記録する
 function recordGame(room) {
   const g = room.game;
   if (!g || !g.gameOver || g.recorded) return;
   g.recorded = true;
+  saveRecord(room);
   if (!room.history) room.history = [];
   room.history.push({
     no: room.history.length + 1, at: Date.now(),
@@ -51,6 +65,7 @@ function roomSummary(room) {
     history: (room.history || []).map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })), // 牌譜は別に取りに来る
     code: room.code,
     settings: room.settings,
+    rate: room.rate || 1,
     seats: room.seats.map(s => s && { name: s.name, isBot: !!s.isBot, online: !!s.isBot || online(s.token), ready: !!s.isBot || s.token === room.hostToken || !!s.ready }),
     spectators: (room.spectators || []).filter(v => online(v.token)).map(v => v.name),
     started: !!room.game,
@@ -162,6 +177,8 @@ function startGame(room) {
   const order = [0, 1, 2, 3];
   for (let i = 3; i > 0; i--) { const j = crypto.randomInt(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
   room.seats = order.map(i => room.seats[i]);
+  room.gameKey = room.code + '-' + Date.now();
+  room.gameRate = room.rate || 1; // 対局中に変わらないよう、開始時の倍率で記録する
   room.game = new Game(room.seats.map(s => ({ name: s.name, isBot: !!s.isBot })), {}, () => broadcast(room));
   broadcast(room);
 }
@@ -248,6 +265,15 @@ function handle(token, msg) {
       if (!isHost() || room.game) return { error: 'ホストのみ操作できます' };
       room.settings.length = msg.length === 'tonpuu' ? 'tonpuu' : 'hanchan';
       room.settings.aka = !!msg.aka;
+      broadcast(room); return { ok: true };
+    }
+    // 倍率（成績表に祝儀×倍率で記録する）。ルームを作った人だけが変えられる
+    case 'setRate': {
+      if (!room || room.game) return { error: '対局中は変えられません' };
+      if (!isHost()) return { error: '倍率を変えられるのはルームを作った人です' };
+      const n = Number(msg.rate);
+      if (!(n > 0 && n <= 1000000)) return { error: '倍率は0より大きい数字で入れてください' };
+      room.rate = Math.round(n * 1000) / 1000;
       broadcast(room); return { ok: true };
     }
     case 'start': {
@@ -367,6 +393,20 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
+  // 成績ページ（みんなで見られる管理表）と、その生データ
+  if (url.pathname === '/stats') {
+    return fs.readFile(path.join(PUBLIC, 'stats.html'), (err, data) => {
+      if (err) { res.writeHead(404); return res.end('not found'); }
+      res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache' }); res.end(data);
+    });
+  }
+  if (url.pathname === '/api/records') {
+    records.list().then(list => {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ enabled: records.enabled, records: list }));
+    }).catch(() => { res.writeHead(500); res.end('{}'); });
+    return;
+  }
   // 静的ファイル
   let p = decodeURIComponent(url.pathname);
   if (p === '/') p = '/index.html';
