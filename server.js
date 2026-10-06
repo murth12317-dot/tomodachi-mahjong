@@ -393,9 +393,9 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/healthz') { res.writeHead(200); return res.end('ok'); }
-  // 成績ページ（みんなで見られる管理表）と、その生データ
-  if (url.pathname === '/stats') {
-    return fs.readFile(path.join(PUBLIC, 'stats.html'), (err, data) => {
+  // 成績ページ（みんなで見られる管理表）・ルールのページと、成績の生データ
+  if (url.pathname === '/stats' || url.pathname === '/rules') {
+    return fs.readFile(path.join(PUBLIC, url.pathname.slice(1) + '.html'), (err, data) => {
       if (err) { res.writeHead(404); return res.end('not found'); }
       res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache' }); res.end(data);
     });

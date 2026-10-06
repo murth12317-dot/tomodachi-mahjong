@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>友達麻雀 ルール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 成績表（stats.html）と同じ見た目 */
+:root{ --bg1:#0f3135; --bg2:#061518; --panel:rgba(8,20,22,.9); --line:rgba(255,255,255,.1); --gold:#f0c65e; --text:#f3f6f1; --muted:#a8c4bb; --pos:#5fe0a0; }
+*{box-sizing:border-box}
+html{background:var(--bg2)}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,var(--bg1),var(--bg2));background-attachment:fixed;color:var(--text);font-family:"Zen Kaku Gothic New",system-ui,sans-serif;font-variant-numeric:tabular-nums;line-height:1.6}
+main{max-width:860px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 40px}
+h1{font-family:"Shippori Mincho B1",serif;color:var(--gold);font-size:26px;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+nav a{font-size:13px;font-weight:700;text-decoration:none;color:var(--text);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 14px;margin:0 0 14px;scroll-margin-top:12px}
+.card h2{font-size:16px;color:var(--gold);margin:0 0 8px}
+.card h3{font-size:14px;color:var(--gold);margin:14px 0 6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+td:first-child{font-weight:700}
+td.v{text-align:right;white-space:nowrap;font-weight:700;color:var(--pos)}
+tr:last-child td{border-bottom:0}
+small,.note{color:var(--muted);font-size:12px}
+ul{margin:4px 0 0;padding-left:1.2em}
+li{margin:4px 0}
+b{color:var(--gold)}
+.tag{display:inline-block;font-size:11px;font-weight:700;color:var(--bg2);background:var(--gold);border-radius:6px;padding:0 6px;margin-right:4px;vertical-align:1px}
+a{color:var(--gold)}
+</style>
+</head>
+<body>
+<main>
+  <h1>友達麻雀 ルール</h1>
+  <p class="sub">4番ルール・下はすべて祝儀換算（祝儀1枚の金額は倍率による）</p>
+  <nav>
+    <a href="#basic">基本</a><a href="#shugi">祝儀</a><a href="#high">高打点</a><a href="#five">祝儀牌（5）</a><a href="#pocchi">ぽっち</a><a href="#dora">ドラ表示牌</a><a href="#special">オープン立直・流し</a>
+  </nav>
+
+  <section class="card" id="basic">
+    <h2>基本</h2>
+    <table>
+      <tr><td>ウマ</td><td class="v">+30 / +10 / −10 / −30枚</td></tr>
+      <tr><td>祝儀1枚</td><td class="v">倍率による</td></tr>
+      <tr><td>トビ</td><td class="v">10枚</td></tr>
+      <tr><td>コールド</td><td class="v">5枚オール</td></tr>
+      <tr><td>大明槓の責任払い</td><td class="v">なし</td></tr>
+      <tr><td>途中流局</td><td class="v">なし</td></tr>
+    </table>
+  </section>
+
+  <section class="card" id="shugi">
+    <h2>祝儀</h2>
+    <table>
+      <tr><td>一発・裏ドラ</td><td class="v">1枚</td></tr>
+      <tr><td>一翻（1翻で和了）</td><td class="v">10枚</td></tr>
+      <tr><td>チャンタ・純チャン・一通</td><td class="v">面前10枚<br>副露5枚</td></tr>
+    </table>
+    <h3>アメリカ七対子</h3>
+    <p>4枚使い（カンツ）の数だけ <b>+4飜</b>。祝儀は下のとおり（ツモ−ロン）。</p>
+    <table>
+      <tr><td>カンツ1つ</td><td class="v">5−10枚</td></tr>
+      <tr><td>カンツ2つ</td><td class="v">15−30枚</td></tr>
+      <tr><td>カンツ3つ</td><td class="v">45−90枚</td></tr>
+    </table>
+    <p class="note">虹・倍ぽっちと複合します。</p>
+  </section>
+
+  <section class="card" id="high">
+    <h2>高打点（ツモ−ロン）</h2>
+    <table>
+      <tr><td>トリプル（三倍満）</td><td class="v">5−10枚</td></tr>
+      <tr><td>数え役満</td><td class="v">10−20枚</td></tr>
+      <tr><td>本役満</td><td class="v">20−40枚</td></tr>
+      <tr><td>W役満</td><td class="v">40−80枚</td></tr>
+    </table>
+    <p class="note">W役満：役満の重複、四暗刻単騎、国士無双十三面、大四喜、純正九蓮宝燈</p>
+  </section>
+
+  <section class="card" id="five">
+    <h2>祝儀牌（5）</h2>
+    <p>各5に1・2・3枚の祝儀牌があります。</p>
+    <table>
+      <tr><td>赤5</td><td class="v">1枚</td></tr>
+      <tr><td>金5</td><td class="v">2枚</td></tr>
+      <tr><td>青5</td><td class="v">3枚</td></tr>
+      <tr><td>萬子 パキラ</td><td class="v">祝儀対象が3枚</td></tr>
+      <tr><td>筒子 ブラックダイヤ</td><td class="v">7枚</td></tr>
+      <tr><td>索子 レインボー</td><td class="v">1枚＋祝儀倍</td></tr>
+    </table>
+    <h3>組み合わせ</h3>
+    <table>
+      <tr><td>レインボー＋倍ぽっち</td><td class="v">4倍</td></tr>
+      <tr><td>パキラ＋青のみ<br><small>（＋一発・裏・ぽっち含む）</small></td><td class="v">祝儀対象が4枚</td></tr>
+      <tr><td><small>手牌に赤・金がある場合</small></td><td class="v">祝儀対象が3枚</td></tr>
+      <tr><td>パキラ＋ブラックダイヤ</td><td class="v">祝儀対象が6枚</td></tr>
+      <tr><td>オールスター</td><td class="v">祝儀対象が10枚</td></tr>
+    </table>
+  </section>
+
+  <section class="card" id="pocchi">
+    <h2>ぽっち</h2>
+    <ul>
+      <li>ぽっちは <b>2枚</b> の祝儀牌（手牌も含む）</li>
+      <li>立直後は <b>オールマイティ</b></li>
+      <li>5はドラに扱えない：オールマイティで5として使っても、その牌はドラにならない<br><small>中ぽっちで虹にした場合は虹の5なので、ドラになる</small></li>
+    </ul>
+    <h3><span class="tag">白</span>倍ぽっち</h3>
+    <p>立直中のみ。<b>祝儀が倍</b>。</p>
+    <h3><span class="tag">發</span>發ぽっち</h3>
+    <p>立直中・ダマ・副露、どの状態でも <b>聴牌かつ役あり</b> なら和了。裏ドラを見られるのは立直しているときだけ。</p>
+    <h3><span class="tag">中</span>中ぽっち</h3>
+    <p>立直中のみ。手牌に5があるときは、そのうち1つを特殊牌にする。5がない、または手牌の5が特殊牌のみの場合は、表ドラ・裏ドラを追加で1枚ずつ見られる。</p>
+    <p>中ぽっちを5として使ったときは、<b>その中ぽっち自身を特殊牌（虹）</b>にすることもできる（手牌の5を変えるのと、どちらか1つ）。</p>
+  </section>
+
+  <section class="card" id="dora">
+    <h2>ドラ表示牌</h2>
+    <h3>表ドラ</h3>
+    <ul>
+      <li><b>白・發・中のぽっち</b>がめくれたら、その種類の通常牌もぽっち扱い</li>
+      <li><b>赤・金・青の5</b>がめくれたら、手牌の6がすべてその効果<br><small>5萬なら6萬だけが対象。例：表に青5萬がめくれたら、6萬がすべて青扱い（ほかも同様）</small></li>
+      <li><b>パキラ・ブラックダイヤ・レインボー</b>がめくれたら、手牌の6の1枚だけにその効果</li>
+    </ul>
+    <h3>裏ドラ</h3>
+    <ul>
+      <li><b>發ぽっち・中ぽっち</b>：裏ドラがオールマイティ</li>
+      <li><b>倍ぽっち</b>：手牌の5を最大1枚まで、パキラ・レインボー・ブラックダイヤと同様に扱い、さらに裏ドラもオールマイティ</li>
+    </ul>
+  </section>
+
+  <section class="card" id="special">
+    <h2>オープン立直・流し</h2>
+    <h3>宙船式オープン立直（あり）</h3>
+    <ul>
+      <li>供託は <b>2枚</b></li>
+      <li>和了のとき、表ドラと裏ドラを追加で2枚ずつ見られる</li>
+    </ul>
+    <h3>流し（あり）</h3>
+    <p><b>倍満＋手牌の祝儀の合計</b> の和了扱い。</p>
+  </section>
+
+  <p class="note"><a href="/">← ゲームに戻る</a></p>
+</main>
+</body>
+</html>

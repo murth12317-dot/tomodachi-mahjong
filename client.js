@@ -213,7 +213,6 @@ function renderRate() {
   box.append(h('small', '', '祝儀×倍率を成績表に記録'));
 }
 $('#btnBot').onclick = () => api('addBot');
-$('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
 $('#btnLeave').onclick = async () => { await api('leave'); ROOM = null; show('#lobby'); };
@@ -848,13 +847,6 @@ function renderModal() {
     const row = h('div', 'row sticky');
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
-    if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
-    if (ROOM && ROOM.solo && window.openRecordFile) {
-      const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
-      const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;
-      fi.onchange = () => { if (fi.files[0]) window.openRecordFile(fi.files[0]); };
-      lb.append(fi); body.append(lb);
-    }
     if (ROOM && ROOM.solo) { const b = h('button', 'primary', 'もう一度対局する'); b.onclick = () => api('rematch'); row.append(b); }
     else {
       { const b = h('button', 'primary', '部屋に戻る'); b.onclick = () => api('rematch'); row.append(b); }

@@ -369,6 +369,25 @@ console.log('シナリオテスト4 OK');
   console.log('裏ドラの倍ぽっち OK');
 }
 
+{ // 5はドラに扱えない：ぽっちを5として使ってもドラにならない（虹に変えたときはドラ）
+  const { Game } = require('../game');
+  const g = new Game([0,1,2,3].map(()=>({name:'P',isBot:true})),{},()=>{});
+  // 34萬（2萬・5萬待ち）4赤56筒 789筒 789索 東東。表ドラ表示牌4萬（ドラ＝5萬）
+  const used = new Set([132, 3 * 4, 52]);
+  const ids = [2,3, 12,14, 15,16,17, 24,25,26, 27,27].map(k => { for (let i = 0; i < 4; i++) { const id = k * 4 + i; if (!used.has(id)) { used.add(id); return id; } } });
+  for (const arr of [g.live, g.dead, ...g.hands]) for (let i = arr.length - 1; i >= 0; i--) if (used.has(arr[i])) arr.splice(i, 1);
+  g.dead.splice(4, 0, 3 * 4);
+  g.hands[0] = [52, ...ids, 132]; g.drawn = 132; g.riichi[0].state = 1; g.hasDiscarded = [true,true,true,true];
+  const cs = g.winCandidates(0, 132, true, { wild: 'chun' });
+  const dora = (c) => (c.yaku.find(y => y[0] === 'ドラ') || [0, 0])[1];
+  // 中ぽっちを5萬として使い、赤5筒を虹にした取り方／中ぽっち自身を虹5萬にした取り方
+  const plain = cs.find(c => c.wildKind === 4 && !c.conversions.some(v => v.self)), rainbow = cs.find(c => c.wildKind === 4 && c.conversions.some(v => v.self));
+  assert.ok(plain && rainbow, JSON.stringify(cs.map(c => c.desc)));
+  assert.strictEqual(dora(plain), 1, plain.desc); // 虹にした5筒の1だけ（5萬として使った中ぽっちはドラにならない）
+  assert.strictEqual(dora(rainbow), 3, rainbow.desc); // 赤5筒＋虹5萬＋表ドラの5萬
+  console.log('ぽっちの5とドラ OK');
+}
+
 
 
 

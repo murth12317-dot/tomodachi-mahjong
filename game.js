@@ -886,7 +886,9 @@ class Game {
       });
       const nonWild = allIds.filter(t => t !== (wild ? winTile : -1));
       const akaCount = nonWild.filter(t => R.fiveColor(t)).length + (conversions.some(c => c.self) ? 1 : 0); // 虹にした中ぽっちも特殊牌ドラ
-      const ctx = Object.assign({}, ctxBase, { closedKinds, winKind, doraKinds, uraKinds, akaCount });
+      // 5はドラに扱えない：ぽっちを5として使っても、その牌はドラにならない（虹に変えたときは虹の5なのでドラ）
+      const noDoraKind = wild && wk != null && R.SUIT_OF_FIVE[wk] && !conversions.some(c => c.self) ? wk : null;
+      const ctx = Object.assign({}, ctxBase, { closedKinds, winKind, doraKinds, uraKinds, akaCount, noDoraKind });
       const res = Y.evaluate(ctx);
       if (!res || !res.hasYaku) return null;
 

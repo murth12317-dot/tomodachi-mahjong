@@ -29,7 +29,7 @@ node server.js
 4. 数分で `https://tomodachi-mahjong-xxxx.onrender.com` のようなURLができる。開いて部屋を作り、招待リンクを友達に送る
 
 ※ 無料プランは15分ほど誰も使わないと休止し、次に開いたとき起動まで少し（1分ほど）待ちます。  
-※ 部屋・牌譜はサーバーのメモリにあるので、休止・再起動で消えます（成績表の記録は GitHub に残ります）。牌譜も残したいときは終局画面の「成績と牌譜を保存」。  
+※ 部屋・牌譜はサーバーのメモリにあるので、休止・再起動で消えます（成績表の記録は GitHub に残ります）。  
 ※ GitHub のファイルを更新すると、Render が自動で新しい版に入れ替えます（対局中の部屋は消えます）。
 
 ## 成績表（みんなで見られる管理表）
@@ -62,6 +62,7 @@ node server.js
 - `server.js` … HTTPサーバー（部屋管理・通信。Server-Sent Events + POST）
 - `records.js` … 成績を GitHub の data ブランチに保存する
 - `stats.html` … 成績表ページ（/stats）
+- `rules.html` … ルールのページ（/rules）
 - `game.js` … 対局エンジン（配牌・鳴き・リーチ・流局・半荘進行）と CPU
 - `yaku.js` … 和了判定・役・符・点数計算
 - `public/` … 画面（HTML/CSS/JS）

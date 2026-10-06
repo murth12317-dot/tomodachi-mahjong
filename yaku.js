@@ -305,8 +305,10 @@ function evaluate(ctx) {
     const hasYaku = ymCount > 0 || han > 0;
     let dora = 0, ura = 0;
     if (ymCount === 0 && hasYaku) {
-      for (const dk of ctx.doraKinds || []) dora += countAll(counts, melds, dk);
-      if (ctx.riichi) for (const uk of ctx.uraKinds || []) ura += countAll(counts, melds, uk);
+      // noDoraKind：オールマイティで5として使ったぽっちは、その1枚をドラに数えない
+      const cnt = (k) => countAll(counts, melds, k) - (ctx.noDoraKind === k ? 1 : 0);
+      for (const dk of ctx.doraKinds || []) dora += cnt(dk);
+      if (ctx.riichi) for (const uk of ctx.uraKinds || []) ura += cnt(uk);
     }
     const yakuList = ymCount > 0 ? c.yakuman.map(([n, v]) => [n, v * 13]) : c.yaku.slice();
     if (ymCount === 0 && hasYaku) {

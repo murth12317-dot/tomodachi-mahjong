@@ -704,7 +704,7 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
     </div>
     <p id="lobbyMsg" class="msg"></p>
     <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
-    <label class="fileOpen small">保存した成績・牌譜を開く<input type="file" id="recordFile" accept=".json,application/json" hidden></label>
+    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
   </div>
 </section>
 
@@ -728,6 +728,7 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
     <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
     <button id="btnLeave" class="small ghost">退出</button>
     <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
+    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
     <p id="roomMsg" class="msg"></p>
   </div>
 </section>
@@ -1070,8 +1071,10 @@ function evaluate(ctx) {
     const hasYaku = ymCount > 0 || han > 0;
     let dora = 0, ura = 0;
     if (ymCount === 0 && hasYaku) {
-      for (const dk of ctx.doraKinds || []) dora += countAll(counts, melds, dk);
-      if (ctx.riichi) for (const uk of ctx.uraKinds || []) ura += countAll(counts, melds, uk);
+      // noDoraKind：オールマイティで5として使ったぽっちは、その1枚をドラに数えない
+      const cnt = (k) => countAll(counts, melds, k) - (ctx.noDoraKind === k ? 1 : 0);
+      for (const dk of ctx.doraKinds || []) dora += cnt(dk);
+      if (ctx.riichi) for (const uk of ctx.uraKinds || []) ura += cnt(uk);
     }
     const yakuList = ymCount > 0 ? c.yakuman.map(([n, v]) => [n, v * 13]) : c.yaku.slice();
     if (ymCount === 0 && hasYaku) {
@@ -2236,7 +2239,9 @@ class Game {
       });
       const nonWild = allIds.filter(t => t !== (wild ? winTile : -1));
       const akaCount = nonWild.filter(t => R.fiveColor(t)).length + (conversions.some(c => c.self) ? 1 : 0); // 虹にした中ぽっちも特殊牌ドラ
-      const ctx = Object.assign({}, ctxBase, { closedKinds, winKind, doraKinds, uraKinds, akaCount });
+      // 5はドラに扱えない：ぽっちを5として使っても、その牌はドラにならない（虹に変えたときは虹の5なのでドラ）
+      const noDoraKind = wild && wk != null && R.SUIT_OF_FIVE[wk] && !conversions.some(c => c.self) ? wk : null;
+      const ctx = Object.assign({}, ctxBase, { closedKinds, winKind, doraKinds, uraKinds, akaCount, noDoraKind });
       const res = Y.evaluate(ctx);
       if (!res || !res.hasYaku) return null;
 
@@ -3363,7 +3368,6 @@ function renderRate() {
   box.append(h('small', '', '祝儀×倍率を成績表に記録'));
 }
 $('#btnBot').onclick = () => api('addBot');
-$('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
 $('#btnLeave').onclick = async () => { await api('leave'); ROOM = null; show('#lobby'); };
@@ -3998,13 +4002,6 @@ function renderModal() {
     const row = h('div', 'row sticky');
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
-    if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
-    if (ROOM && ROOM.solo && window.openRecordFile) {
-      const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
-      const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;
-      fi.onchange = () => { if (fi.files[0]) window.openRecordFile(fi.files[0]); };
-      lb.append(fi); body.append(lb);
-    }
     if (ROOM && ROOM.solo) { const b = h('button', 'primary', 'もう一度対局する'); b.onclick = () => api('rematch'); row.append(b); }
     else {
       { const b = h('button', 'primary', '部屋に戻る'); b.onclick = () => api('rematch'); row.append(b); }
