@@ -202,9 +202,11 @@ function renderRate() {
   box.innerHTML = '';
   box.append(h('b', '', '倍率'));
   if (ROOM.isHost) {
-    const inp = h('input'); inp.id = 'rate'; inp.type = 'number'; inp.inputMode = 'decimal'; inp.min = '0'; inp.step = 'any';
+    // ↑↓のボタンが出ないよう、ふつうの文字入力にして数字のキーボードを出す
+    const inp = h('input'); inp.id = 'rate'; inp.type = 'text'; inp.inputMode = 'decimal'; inp.autocomplete = 'off';
     inp.value = typing != null ? typing : ROOM.rate;
-    inp.onchange = () => api('setRate', { rate: inp.value });
+    // 全角の数字やカンマが入っても受け付ける
+    inp.onchange = () => api('setRate', { rate: inp.value.replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[,，\s]/g, '') });
     box.append(inp);
     if (typing != null) inp.focus();
   } else box.append(h('span', '', String(ROOM.rate)));
