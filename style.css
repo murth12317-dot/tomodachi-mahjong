@@ -671,3 +671,37 @@ body.landscape #doraBox { display: flex; position: absolute; left: 8px; top: 6px
   background: rgba(0,0,0,.45); border-radius: 8px; padding: 4px 8px; color: #eee; font-size: 13px; font-weight: 700; }
 body.landscape #doraBox .tile { --w: var(--dw, 28px); }
 body.landscape .center .dora { display: none; }
+
+/* ---- 成績表 ---- */
+#stats { position: absolute; inset: 0; z-index: 50; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  background: radial-gradient(circle at 50% 0%, #17332d 0%, #0a1714 70%); user-select: text;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px); }
+#statsBody { width: min(560px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+#statsBack { display: block; width: min(560px, 100%); margin: 18px auto 0; text-align: left; padding: 6px 0; color: var(--accent); }
+.stHead { display: flex; flex-direction: column; gap: 6px; }
+.stTitle { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: .08em; color: #f1cf73;
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; }
+.stSub { text-align: left; font-size: 14px; }
+.stCtl { display: flex; gap: 10px; align-items: stretch; }
+.stSel { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 12px 14px; border-radius: 12px; color: var(--text);
+  background: #22393a; border: 1px solid rgba(255,255,255,.12); }
+.stXl { flex: none; border-radius: 12px; padding: 12px 18px; background: linear-gradient(180deg, #f3d98a, #d6a94c); color: #2b2000; }
+.stXl:disabled { opacity: .45; }
+.stEmpty { text-align: left; padding: 8px 2px; line-height: 1.6; }
+.stCard { background: #0d1513; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+.stCard h3 { margin: 0; font-size: 17px; color: #f1cf73; }
+.stTable { width: 100%; border-collapse: collapse; font-size: 16px; font-variant-numeric: tabular-nums; }
+.stTable th { text-align: left; font-weight: 600; font-size: 13px; color: var(--muted); padding: 6px 4px 8px; border-bottom: 1px solid rgba(255,255,255,.15); }
+.stTable td { padding: 11px 4px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.stTable .num { text-align: right; white-space: nowrap; }
+.stName { overflow-wrap: anywhere; }
+.stMoney { font-size: 20px; font-weight: 700; }
+.stGame { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.14); }
+.stGame:last-child { border-bottom: 0; padding-bottom: 0; }
+.stMeta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.stRate { padding: 4px 2px; font-size: 13px; color: var(--muted); }
+.stRows td { border-bottom: 0; padding: 5px 4px; }
+.stRank { color: #f1cf73; font-weight: 700; width: 3.2em; }
+.stDel { align-self: flex-end; padding: 2px; font-size: 12px; }
+#stats button.ghost, #stats button.ghost:active { box-shadow: none; transform: none; }
+body:has(#stats:not(.hidden)) #landHint { display: none; }

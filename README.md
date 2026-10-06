@@ -42,7 +42,7 @@ node server.js
 - `server.js` … HTTPサーバー（部屋管理・通信。Server-Sent Events + POST）
 - `game.js` … 対局エンジン（配牌・鳴き・リーチ・流局・半荘進行）と CPU
 - `yaku.js` … 和了判定・役・符・点数計算
-- `public/` … 画面（HTML/CSS/JS）
+- `public/` … 画面（HTML/CSS/JS）。`stats.js` は成績表（終わった半荘を端末に記録し、週ごとの集計・CSV保存）
 - `test/test.js` … テスト（`npm test`：役・点数のテスト + CPU同士40局の自動対局）
 
 ## 実装上の判断（定義書に書かれていない部分）

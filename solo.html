@@ -675,6 +675,40 @@ body.landscape #doraBox { display: flex; position: absolute; left: 8px; top: 6px
 body.landscape #doraBox .tile { --w: var(--dw, 28px); }
 body.landscape .center .dora { display: none; }
 
+/* ---- 成績表 ---- */
+#stats { position: absolute; inset: 0; z-index: 50; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  background: radial-gradient(circle at 50% 0%, #17332d 0%, #0a1714 70%); user-select: text;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px); }
+#statsBody { width: min(560px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+#statsBack { display: block; width: min(560px, 100%); margin: 18px auto 0; text-align: left; padding: 6px 0; color: var(--accent); }
+.stHead { display: flex; flex-direction: column; gap: 6px; }
+.stTitle { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: .08em; color: #f1cf73;
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; }
+.stSub { text-align: left; font-size: 14px; }
+.stCtl { display: flex; gap: 10px; align-items: stretch; }
+.stSel { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 12px 14px; border-radius: 12px; color: var(--text);
+  background: #22393a; border: 1px solid rgba(255,255,255,.12); }
+.stXl { flex: none; border-radius: 12px; padding: 12px 18px; background: linear-gradient(180deg, #f3d98a, #d6a94c); color: #2b2000; }
+.stXl:disabled { opacity: .45; }
+.stEmpty { text-align: left; padding: 8px 2px; line-height: 1.6; }
+.stCard { background: #0d1513; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+.stCard h3 { margin: 0; font-size: 17px; color: #f1cf73; }
+.stTable { width: 100%; border-collapse: collapse; font-size: 16px; font-variant-numeric: tabular-nums; }
+.stTable th { text-align: left; font-weight: 600; font-size: 13px; color: var(--muted); padding: 6px 4px 8px; border-bottom: 1px solid rgba(255,255,255,.15); }
+.stTable td { padding: 11px 4px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.stTable .num { text-align: right; white-space: nowrap; }
+.stName { overflow-wrap: anywhere; }
+.stMoney { font-size: 20px; font-weight: 700; }
+.stGame { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.14); }
+.stGame:last-child { border-bottom: 0; padding-bottom: 0; }
+.stMeta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.stRate { padding: 4px 2px; font-size: 13px; color: var(--muted); }
+.stRows td { border-bottom: 0; padding: 5px 4px; }
+.stRank { color: #f1cf73; font-weight: 700; width: 3.2em; }
+.stDel { align-self: flex-end; padding: 2px; font-size: 12px; }
+#stats button.ghost, #stats button.ghost:active { box-shadow: none; transform: none; }
+body:has(#stats:not(.hidden)) #landHint { display: none; }
+
 :root { color-scheme: dark; }
 html, body { height: 100%; }
 body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt-dark) 75%); background-color: var(--felt-dark); }
@@ -696,6 +730,7 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
       <button id="btnJoin">参加</button>
     </div>
     <p id="lobbyMsg" class="msg"></p>
+    <button id="btnStatsLobby" class="small">成績表</button>
     <label class="fileOpen small">保存した成績・牌譜を開く<input type="file" id="recordFile" accept=".json,application/json" hidden></label>
   </div>
 </section>
@@ -717,6 +752,7 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
     </div>
     <button id="btnReady" class="primary hidden">準備OK</button>
     <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
+    <button id="btnStatsRoom" class="small">成績表</button>
     <button id="btnLeave" class="small ghost">退出</button>
     <p id="roomMsg" class="msg"></p>
   </div>
@@ -736,6 +772,12 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
     <label>音 <select id="sound"><option value="all">すべて</option><option value="turn">番と鳴きだけ</option><option value="off">なし</option></select></label>
     <label id="watchOpt" class="hidden"><input type="checkbox" id="watch"> 観戦（全員CPU）</label>
   </div>
+</section>
+
+<!-- 成績表 -->
+<section id="stats" class="hidden">
+  <div id="statsBody"></div>
+  <button id="statsBack" class="ghost">← 戻る</button>
 </section>
 
 <div id="modal" class="hidden"><div id="modalBody"></div></div>
@@ -3196,6 +3238,7 @@ async function api(cmd, data = {}) {
 
 function show(id) {
   for (const s of ['#lobby', '#room', '#table']) $(s).classList.toggle('hidden', s !== id);
+  $('#stats').classList.add('hidden');
   document.body.classList.toggle('inGame', id === '#table');
   if (id !== '#table') $('#modal').classList.add('hidden');
 }
@@ -3203,6 +3246,7 @@ function show(id) {
 // ================= 接続 =================
 function onRoom(data) {
   ROOM = data;
+  if (window.STATS) window.STATS.recordFromRoom(ROOM); // 終わった半荘をこの端末の成績表に記録
   if (!ROOM.started) { S = null; prevS = null; $('#noCall').checked = false; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
 }
@@ -3333,6 +3377,8 @@ function renderRoom() {
   }
 }
 $('#btnBot').onclick = () => api('addBot');
+$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open('#lobby');
+$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open('#room');
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
@@ -3969,6 +4015,7 @@ function renderModal() {
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
+    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open('#table', renderModal); row.append(st); }
     if (ROOM && ROOM.solo && window.openRecordFile) {
       const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
       const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;
@@ -4158,6 +4205,197 @@ function landHint() {
   document.body.append(el);
   setTimeout(() => { if (el.isConnected) { ls.set('mj_landHint', '1'); el.remove(); } }, 8000);
 }
+
+// 成績表：終わった半荘をこの端末に記録して、週ごと・全期間の集計を出す（Excel用のCSVにも保存できる）
+(function () {
+  'use strict';
+  const KEY = 'tomodachi-seiseki-v1';
+  const DEFAULT_RATE = 100; // 祝儀1枚あたりの金額（半荘ごとに変えられる）
+  const $ = (s) => document.querySelector(s);
+  const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  // ---- 記録の読み書き（読めない・書けないときは空として扱う） ----
+  function load() {
+    try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* 保存できない環境は無視 */ }
+  }
+
+  // 部屋の成績（ROOM.history）に新しい半荘があれば記録に足す。同じ半荘は二重に入れない
+  function recordFromRoom(room) {
+    if (!room || !room.history || !room.history.length) return;
+    const list = load();
+    const have = new Set(list.map(g => g.id));
+    let added = false;
+    for (const g of room.history) {
+      const id = `${room.code}-${g.at}`;
+      if (have.has(id)) continue;
+      list.push({
+        id, at: g.at, room: room.code, rate: DEFAULT_RATE,
+        rows: g.rows.map(r => ({ name: r.name, rank: r.rank, score: r.score, chips: r.chips, isBot: !!r.isBot })),
+      });
+      have.add(id); added = true;
+    }
+    if (added) save(list);
+  }
+
+  // ---- 週（日曜はじまり） ----
+  const pad = (n) => String(n).padStart(2, '0');
+  function weekStart(at) {
+    const d = new Date(at); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());
+    return d.getTime();
+  }
+  function weekLabel(ws) {
+    const a = new Date(ws), b = new Date(ws); b.setDate(b.getDate() + 6);
+    return `${a.getFullYear()}/${a.getMonth() + 1}/${a.getDate()}〜${b.getMonth() + 1}/${b.getDate()}`;
+  }
+  const fmtAt = (at) => { const d = new Date(at); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const sign = (n) => (n > 0 ? '+' : '') + n.toLocaleString('ja-JP');
+  const cls = (n) => (n > 0 ? 'plus' : n < 0 ? 'minus' : '');
+
+  // 名前ごとの合計（集計＝祝儀×倍率の合計）
+  function summarize(games) {
+    const m = new Map();
+    for (const g of games) for (const r of g.rows) {
+      const s = m.get(r.name) || { name: r.name, games: 0, ranks: [0, 0, 0, 0], chips: 0, money: 0 };
+      s.games++; s.ranks[r.rank - 1]++; s.chips += r.chips; s.money += r.chips * g.rate;
+      m.set(r.name, s);
+    }
+    return [...m.values()].sort((a, b) => b.money - a.money || b.chips - a.chips);
+  }
+
+  // ---- 画面 ----
+  let period = 'all';
+  let backTo = '#lobby', onBack = null;
+
+  function render() {
+    const all = load().sort((a, b) => b.at - a.at);
+    const box = $('#statsBody'); box.innerHTML = '';
+
+    const head = h('div', 'stHead');
+    head.append(h('h2', 'stTitle', '成績表'), h('p', 'sub stSub', `全${all.length}半荘・週は日曜はじまり`));
+    box.append(head);
+
+    // 期間の選択と保存
+    const weeks = [...new Set(all.map(g => weekStart(g.at)))].sort((a, b) => b - a);
+    if (period !== 'all' && !weeks.includes(+period)) period = 'all';
+    const ctl = h('div', 'stCtl');
+    const sel = h('select', 'stSel');
+    const opt = (v, t) => { const o = h('option', '', t); o.value = v; return o; };
+    sel.append(opt('all', `全期間（${all.length}半荘）`));
+    for (const w of weeks) sel.append(opt(String(w), `${weekLabel(w)}（${all.filter(g => weekStart(g.at) === w).length}半荘）`));
+    sel.value = String(period);
+    sel.onchange = () => { period = sel.value; render(); };
+    const xl = h('button', 'primary stXl', 'Excel保存');
+    ctl.append(sel, xl);
+    box.append(ctl);
+
+    const games = period === 'all' ? all : all.filter(g => weekStart(g.at) === +period);
+    const label = period === 'all' ? '全期間' : weekLabel(+period);
+    xl.onclick = () => exportCsv(games, label);
+    xl.disabled = !games.length;
+
+    if (!games.length) {
+      box.append(h('p', 'sub stEmpty', 'まだ記録がありません。対局が終わると、この端末に自動で記録されます。'));
+      return;
+    }
+
+    // 上：名前と集計だけ
+    const sum = h('div', 'stCard');
+    sum.append(h('h3', '', `${label} の集計（${games.length}半荘）`));
+    const t = h('table', 'stTable');
+    const hr = h('tr'); hr.append(h('th', '', '名前'), h('th', 'num', '集計')); t.append(hr);
+    for (const s of summarize(games)) {
+      const tr = h('tr');
+      tr.append(h('td', 'stName', s.name), h('td', 'num stMoney ' + cls(s.money), sign(s.money)));
+      t.append(tr);
+    }
+    sum.append(t);
+    box.append(sum);
+
+    // 下：半荘ごとの記録
+    const rec = h('div', 'stCard');
+    rec.append(h('h3', '', '半荘ごとの記録'));
+    for (const g of games) {
+      const gb = h('div', 'stGame');
+      const meta = h('div', 'stMeta');
+      meta.append(h('span', '', `${fmtAt(g.at)}　${g.room === 'CPU' ? '一人打ち' : 'ルーム ' + g.room}`));
+      const rb = h('button', 'small ghost stRate', `倍率 ${g.rate}`);
+      rb.title = '倍率を変える';
+      rb.onclick = () => changeRate(g.id, g.rate);
+      meta.append(rb);
+      gb.append(meta);
+      const gt = h('table', 'stTable stRows');
+      for (const r of g.rows.slice().sort((a, b) => a.rank - b.rank)) {
+        const tr = h('tr');
+        tr.append(h('td', 'stRank', `${r.rank}着`), h('td', 'stName', r.name),
+          h('td', 'num ' + cls(r.chips), `${sign(r.chips)}枚`), h('td', 'num ' + cls(r.chips), sign(r.chips * g.rate)));
+        gt.append(tr);
+      }
+      gb.append(gt);
+      const del = h('button', 'small ghost stDel', 'この半荘を記録から消す');
+      del.onclick = () => removeGame(g.id);
+      gb.append(del);
+      rec.append(gb);
+    }
+    box.append(rec);
+  }
+
+  function changeRate(id, cur) {
+    const v = prompt('この半荘の倍率（祝儀1枚あたりの金額）', String(cur));
+    if (v == null) return;
+    const n = Math.round(Number(v.replace(/[^\d.]/g, '')));
+    if (!(n >= 0)) { alert('数字で入れてください'); return; }
+    const list = load(); const g = list.find(x => x.id === id);
+    if (g) { g.rate = n; save(list); render(); }
+  }
+
+  function removeGame(id) {
+    if (!confirm('この半荘を成績表から消しますか？（元に戻せません）')) return;
+    save(load().filter(x => x.id !== id)); render();
+  }
+
+  // Excelで開けるCSV（文字化けしないようBOM付き）
+  function exportCsv(games, label) {
+    const q = (v) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines = [];
+    lines.push([`${label} の集計（${games.length}半荘）`].map(q).join(','));
+    lines.push(['名前', '半荘', '1着', '2着', '3着', '4着', '祝儀計', '集計'].map(q).join(','));
+    for (const s of summarize(games)) lines.push([s.name, s.games, ...s.ranks, s.chips, s.money].map(q).join(','));
+    lines.push('');
+    lines.push(['日時', 'ルーム', '倍率', '着順', '名前', '点数', '祝儀', '金額'].map(q).join(','));
+    for (const g of games.slice().sort((a, b) => a.at - b.at)) {
+      for (const r of g.rows.slice().sort((a, b) => a.rank - b.rank)) {
+        lines.push([fmtAt(g.at), g.room === 'CPU' ? '一人打ち' : g.room, g.rate, r.rank, r.name, r.score, r.chips, r.chips * g.rate].map(q).join(','));
+      }
+    }
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
+    const d = new Date();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `seiseki_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.csv`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function open(from, after) {
+    backTo = from || '#lobby'; onBack = after || null;
+    for (const s of ['#lobby', '#room', '#table']) $(s).classList.add('hidden');
+    $('#modal').classList.add('hidden');
+    $('#stats').classList.remove('hidden');
+    render();
+    $('#stats').scrollTop = 0;
+  }
+  function close() {
+    $('#stats').classList.add('hidden');
+    $(backTo).classList.remove('hidden');
+    if (onBack) onBack();
+  }
+
+  $('#statsBack').onclick = close;
+  window.STATS = { recordFromRoom, open, close };
+})();
 
 // 牌譜の再生（対局後に1手ずつ見返す）
 'use strict';

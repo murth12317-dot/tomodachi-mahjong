@@ -56,6 +56,7 @@ async function api(cmd, data = {}) {
 
 function show(id) {
   for (const s of ['#lobby', '#room', '#table']) $(s).classList.toggle('hidden', s !== id);
+  $('#stats').classList.add('hidden');
   document.body.classList.toggle('inGame', id === '#table');
   if (id !== '#table') $('#modal').classList.add('hidden');
 }
@@ -63,6 +64,7 @@ function show(id) {
 // ================= 接続 =================
 function onRoom(data) {
   ROOM = data;
+  if (window.STATS) window.STATS.recordFromRoom(ROOM); // 終わった半荘をこの端末の成績表に記録
   if (!ROOM.started) { S = null; prevS = null; $('#noCall').checked = false; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
 }
@@ -193,6 +195,8 @@ function renderRoom() {
   }
 }
 $('#btnBot').onclick = () => api('addBot');
+$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open('#lobby');
+$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open('#room');
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
@@ -829,6 +833,7 @@ function renderModal() {
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
+    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open('#table', renderModal); row.append(st); }
     if (ROOM && ROOM.solo && window.openRecordFile) {
       const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
       const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;
