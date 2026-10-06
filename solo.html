@@ -3186,7 +3186,8 @@ let myMeldCount = null;
 let resultSeenAt = null, modalDelay = null;
 const uraStart = new Map(); // 和了ごとの演出開始時刻（状態が送り直されても同じ和了なら続きから）
 const agariKey = (R) => JSON.stringify([S && S.gid, S && S.round, R.wins.map(w => [w.seat, w.tile, w.points, w.ura])]);
-const finalShown = new WeakSet();
+// 「終局の結果を見る」を押した半荘（状態が送り直されるたびに結果は別の物になるので、半荘の目印で覚える）
+const finalShown = new Set();
 // （旧）裏ドラの平面めくりは和了演出の王牌の台に置き換え
  // ツモった牌のアニメーション用 // ダブルタップで切るための選択中の牌
 
@@ -3971,10 +3972,10 @@ function renderModal() {
   if (aElapsed < longest) { tb.classList.add('reveal'); tb.style.animationDelay = (longest - 0.5 - aElapsed) + 's'; }
   body.append(tb);
 
-  if (S.gameOver && !finalShown.has(R)) {
+  if (S.gameOver && !finalShown.has(S.gid)) {
     // 最後の局の結果（裏ドラの演出も）を先に見せて、ボタンで終局の順位表へ
     const nb = h('button', 'primary sticky', '終局の結果を見る');
-    nb.onclick = () => { finalShown.add(R); renderModal(); };
+    nb.onclick = () => { finalShown.add(S.gid); renderModal(); };
     body.append(nb);
     landModal(body);
     return;
