@@ -705,7 +705,6 @@ body.landscape .center .dora { display: none; }
 .stRate { padding: 4px 2px; font-size: 13px; color: var(--muted); }
 .stRows td { border-bottom: 0; padding: 5px 4px; }
 .stRank { color: #f1cf73; font-weight: 700; width: 3.2em; }
-.stDel { align-self: flex-end; padding: 2px; font-size: 12px; }
 #stats button.ghost, #stats button.ghost:active { box-shadow: none; transform: none; }
 body:has(#stats:not(.hidden)) #landHint { display: none; }
 
@@ -3238,7 +3237,6 @@ async function api(cmd, data = {}) {
 
 function show(id) {
   for (const s of ['#lobby', '#room', '#table']) $(s).classList.toggle('hidden', s !== id);
-  $('#stats').classList.add('hidden');
   document.body.classList.toggle('inGame', id === '#table');
   if (id !== '#table') $('#modal').classList.add('hidden');
 }
@@ -3377,8 +3375,8 @@ function renderRoom() {
   }
 }
 $('#btnBot').onclick = () => api('addBot');
-$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open('#lobby');
-$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open('#room');
+$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open();
+$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open();
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
@@ -4015,7 +4013,7 @@ function renderModal() {
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
-    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open('#table', renderModal); row.append(st); }
+    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open(); row.append(st); }
     if (ROOM && ROOM.solo && window.openRecordFile) {
       const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
       const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;
@@ -4267,7 +4265,6 @@ function landHint() {
 
   // ---- 画面 ----
   let period = 'all';
-  let backTo = '#lobby', onBack = null;
 
   function render() {
     const all = load().sort((a, b) => b.at - a.at);
@@ -4334,9 +4331,6 @@ function landHint() {
         gt.append(tr);
       }
       gb.append(gt);
-      const del = h('button', 'small ghost stDel', 'この半荘を記録から消す');
-      del.onclick = () => removeGame(g.id);
-      gb.append(del);
       rec.append(gb);
     }
     box.append(rec);
@@ -4349,11 +4343,6 @@ function landHint() {
     if (!(n >= 0)) { alert('数字で入れてください'); return; }
     const list = load(); const g = list.find(x => x.id === id);
     if (g) { g.rate = n; save(list); render(); }
-  }
-
-  function removeGame(id) {
-    if (!confirm('この半荘を成績表から消しますか？（元に戻せません）')) return;
-    save(load().filter(x => x.id !== id)); render();
   }
 
   // Excelで開けるCSV（文字化けしないようBOM付き）
@@ -4379,18 +4368,14 @@ function landHint() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  function open(from, after) {
-    backTo = from || '#lobby'; onBack = after || null;
-    for (const s of ['#lobby', '#room', '#table']) $(s).classList.add('hidden');
-    $('#modal').classList.add('hidden');
+  // 成績表は一番上に重ねて出すだけ（下の画面は対局の進み具合に合わせてそのまま切り替わる）
+  function open() {
     $('#stats').classList.remove('hidden');
     render();
     $('#stats').scrollTop = 0;
   }
   function close() {
     $('#stats').classList.add('hidden');
-    $(backTo).classList.remove('hidden');
-    if (onBack) onBack();
   }
 
   $('#statsBack').onclick = close;

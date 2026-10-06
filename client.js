@@ -56,7 +56,6 @@ async function api(cmd, data = {}) {
 
 function show(id) {
   for (const s of ['#lobby', '#room', '#table']) $(s).classList.toggle('hidden', s !== id);
-  $('#stats').classList.add('hidden');
   document.body.classList.toggle('inGame', id === '#table');
   if (id !== '#table') $('#modal').classList.add('hidden');
 }
@@ -195,8 +194,8 @@ function renderRoom() {
   }
 }
 $('#btnBot').onclick = () => api('addBot');
-$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open('#lobby');
-$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open('#room');
+$('#btnStatsLobby').onclick = () => window.STATS && window.STATS.open();
+$('#btnStatsRoom').onclick = () => window.STATS && window.STATS.open();
 $('#recordFile').onchange = (e) => { const f = e.target.files[0]; if (f && window.openRecordFile) window.openRecordFile(f); e.target.value = ''; };
 $('#btnStart').onclick = () => api('start');
 $('#btnReady').onclick = () => { const me = ROOM && ROOM.seats[ROOM.you]; api('ready', { ready: !(me && me.ready) }); };
@@ -833,7 +832,7 @@ function renderModal() {
     const hist = (ROOM && ROOM.history) || [];
     if (hist.length && window.openReplay) { const rb = h('button', '', 'この対局の牌譜'); rb.onclick = () => window.openReplay(hist[hist.length - 1].no, hist[hist.length - 1].names); row.append(rb); }
     if (hist.length && window.saveRecords) { const sb = h('button', '', '成績と牌譜を保存'); sb.onclick = () => window.saveRecords(); row.append(sb); }
-    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open('#table', renderModal); row.append(st); }
+    if (window.STATS) { const st = h('button', '', '成績表'); st.onclick = () => window.STATS.open(); row.append(st); }
     if (ROOM && ROOM.solo && window.openRecordFile) {
       const lb = h('label', 'fileOpen small', '保存した成績・牌譜を開く');
       const fi = h('input'); fi.type = 'file'; fi.accept = '.json,application/json'; fi.hidden = true;

@@ -59,7 +59,6 @@
 
   // ---- 画面 ----
   let period = 'all';
-  let backTo = '#lobby', onBack = null;
 
   function render() {
     const all = load().sort((a, b) => b.at - a.at);
@@ -126,9 +125,6 @@
         gt.append(tr);
       }
       gb.append(gt);
-      const del = h('button', 'small ghost stDel', 'この半荘を記録から消す');
-      del.onclick = () => removeGame(g.id);
-      gb.append(del);
       rec.append(gb);
     }
     box.append(rec);
@@ -141,11 +137,6 @@
     if (!(n >= 0)) { alert('数字で入れてください'); return; }
     const list = load(); const g = list.find(x => x.id === id);
     if (g) { g.rate = n; save(list); render(); }
-  }
-
-  function removeGame(id) {
-    if (!confirm('この半荘を成績表から消しますか？（元に戻せません）')) return;
-    save(load().filter(x => x.id !== id)); render();
   }
 
   // Excelで開けるCSV（文字化けしないようBOM付き）
@@ -171,18 +162,14 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  function open(from, after) {
-    backTo = from || '#lobby'; onBack = after || null;
-    for (const s of ['#lobby', '#room', '#table']) $(s).classList.add('hidden');
-    $('#modal').classList.add('hidden');
+  // 成績表は一番上に重ねて出すだけ（下の画面は対局の進み具合に合わせてそのまま切り替わる）
+  function open() {
     $('#stats').classList.remove('hidden');
     render();
     $('#stats').scrollTop = 0;
   }
   function close() {
     $('#stats').classList.add('hidden');
-    $(backTo).classList.remove('hidden');
-    if (onBack) onBack();
   }
 
   $('#statsBack').onclick = close;
