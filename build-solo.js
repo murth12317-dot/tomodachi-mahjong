@@ -37,6 +37,7 @@ ${mod('./game', 'game.js')}
 ${read('public/tiles.js')}
 ${read('public/sound.js')}
 ${read('public/effects.js')}
+${read('public/chars.js')}
 ${read('public/solo.js')}
 ${read('public/client.js')}
 ${read('public/replay.js')}

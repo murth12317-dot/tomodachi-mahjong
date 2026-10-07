@@ -63,6 +63,7 @@ node server.js
 - `records.js` … 成績を GitHub の data ブランチに保存する
 - `stats.html` … 成績表ページ（/stats）
 - `rules.html` … ルールのページ（/rules）
+- `chars.js` … オリジナルのキャラの絵（SVG。表情：ふつう・和了・リーチ・振り込み）
 - `game.js` … 対局エンジン（配牌・鳴き・リーチ・流局・半荘進行）と CPU
 - `yaku.js` … 和了判定・役・符・点数計算
 - `public/` … 画面（HTML/CSS/JS）

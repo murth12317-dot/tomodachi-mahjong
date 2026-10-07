@@ -6,14 +6,27 @@ window.SOLO = (function () {
   const BOT_DELAY = 550;
   let handlers, game, you, botTimer, autoTimer, watch = false, players = [];
   const history = [];
-  const roomInfo = () => ({ code: 'CPU', settings: {}, seats: players.map(p => ({ name: p.name, isBot: p.isBot, online: true })), started: true, you, isHost: true, solo: true, history: history.map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })) });
+  // キャラを変える（CPUと同じキャラなら入れ替える）
+  function setChar(c) {
+    if (!players[you]) return;
+    const other = players.find((p, i) => i !== you && p.char === c);
+    if (other) other.char = players[you].char;
+    players[you].char = c;
+    handlers.room(roomInfo()); handlers.state(game.viewFor(you));
+  }
+  const roomInfo = () => ({ code: 'CPU', settings: {}, seats: players.map(p => ({ name: p.name, char: p.char, isBot: p.isBot, online: true })), started: true, you, isHost: true, solo: true, history: history.map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })) });
 
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
   function newGame() {
     clearTimeout(botTimer); clearTimeout(autoTimer);
     const order = shuffle([0, 1, 2, 3]);
-    players = order.map(i => ({ name: NAMES[i], isBot: i !== 0 }));
+    // キャラ：自分はロビーで選んだもの、CPUは残りから
+    const CH = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+    let mine = null; try { mine = localStorage.getItem('mj_char'); } catch (e) { /* noop */ }
+    if (!CH.includes(mine)) mine = CH[2];
+    const rest = shuffle(CH.filter(c => c !== mine));
+    players = order.map(i => ({ name: NAMES[i], isBot: i !== 0, char: i === 0 ? mine : rest[i - 1] }));
     you = order.indexOf(0);
     game = new Game(players, {}, update);
     handlers.room(roomInfo());
@@ -69,5 +82,5 @@ window.SOLO = (function () {
     if (watch && game.gameOver && game.phase === 'result') { newGame(); return; }
     schedule();
   }
-  return { start(h) { handlers = h; newGame(); }, api, setWatch };
+  return { start(h) { handlers = h; newGame(); }, api, setWatch, setChar };
 })();

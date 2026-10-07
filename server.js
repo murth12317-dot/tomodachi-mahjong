@@ -66,7 +66,7 @@ function roomSummary(room) {
     code: room.code,
     settings: room.settings,
     rate: room.rate || 1,
-    seats: room.seats.map(s => s && { name: s.name, isBot: !!s.isBot, online: !!s.isBot || online(s.token), ready: !!s.isBot || s.token === room.hostToken || !!s.ready }),
+    seats: room.seats.map(s => s && { name: s.name, char: s.char, isBot: !!s.isBot, online: !!s.isBot || online(s.token), ready: !!s.isBot || s.token === room.hostToken || !!s.ready }),
     spectators: (room.spectators || []).filter(v => online(v.token)).map(v => v.name),
     started: !!room.game,
   };
@@ -184,6 +184,10 @@ function startGame(room) {
 }
 
 const cleanName = n => String(n || '').trim().slice(0, 12);
+// キャラ（chars.js と同じ並び）。選んでいなければ空いているキャラ
+const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+const cleanChar = c => (CHAR_IDS.includes(c) ? c : null);
+const freeChar = (room) => { const used = new Set(room.seats.filter(Boolean).map(s => s.char)); const free = CHAR_IDS.filter(c => !used.has(c)); return free[crypto.randomInt(free.length || 1)] || CHAR_IDS[crypto.randomInt(CHAR_IDS.length)]; };
 
 // ============ コマンド処理 ============
 function handle(token, msg) {
@@ -202,7 +206,7 @@ function handle(token, msg) {
       room = {
         code, hostToken: token,
         settings: { length: 'tonpuu', aka: true }, // ルールは固定（東風戦・定義書どおり）
-        seats: [{ token, name }, null, null, null],
+        seats: [{ token, name, char: cleanChar(msg.char) || CHAR_IDS[crypto.randomInt(CHAR_IDS.length)] }, null, null, null],
         game: null, lastActive: Date.now(),
       };
       rooms.set(code, room);
@@ -224,6 +228,7 @@ function handle(token, msg) {
           if (r.hostToken === back.token) r.hostToken = token;
           back.token = token;
           back.offlineAt = null; back.left = false;
+          if (cleanChar(msg.char)) back.char = cleanChar(msg.char);
           if (r.spectators) r.spectators = r.spectators.filter(v => v.token !== token);
           room = r; bind(r); broadcast(r);
           return { ok: true, code: r.code };
@@ -237,10 +242,11 @@ function handle(token, msg) {
           if (sp) sp.name = name; else r.spectators.push({ token, name });
         } else {
           if (sp) r.spectators = r.spectators.filter(v => v !== sp);
-          r.seats[free] = { token, name };
+          r.seats[free] = { token, name, char: cleanChar(msg.char) || freeChar(r) };
         }
       } else if (!r.game && cleanName(msg.name)) {
         r.seats[existing].name = cleanName(msg.name);
+        if (cleanChar(msg.char)) r.seats[existing].char = cleanChar(msg.char);
       }
       room = r; bind(r); broadcast(r);
       return { ok: true, code: r.code };
@@ -250,7 +256,7 @@ function handle(token, msg) {
       const free = room.seats.findIndex(s => !s);
       if (free < 0) return { error: '満員です' };
       const n = room.seats.filter(s => s && s.isBot).length + 1;
-      room.seats[free] = { token: 'bot-' + crypto.randomUUID(), name: 'CPU' + n, isBot: true };
+      room.seats[free] = { token: 'bot-' + crypto.randomUUID(), name: 'CPU' + n, isBot: true, char: freeChar(room) };
       broadcast(room); return { ok: true };
     }
     case 'kick': {

@@ -654,6 +654,32 @@ body.landscape .center .dora { display: none; }
 .raterow input { width: 90px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: var(--text); font: inherit; font-size: 16px; }
 .raterow small { flex-basis: 100%; font-size: 11px; color: var(--muted); font-weight: 700; }
 
+/* ---- キャラ ---- */
+.av, .ci, .ring .big, .cutin .big { border-radius: 50%; overflow: hidden; flex: none; background: radial-gradient(circle at 50% 40%, #fff6e8, #ffd9a8); }
+.av svg, .ci svg, .ring .big svg, .cutin .big svg { width: 100%; height: 100%; display: block; }
+.av { width: 30px; height: 30px; box-shadow: 0 0 0 2px var(--c); }
+.lobbyHero { display: flex; justify-content: center; margin: -4px 0 2px; }
+.lobbyHero .av { width: 42px; height: 42px; margin-left: -6px; box-shadow: 0 0 0 2px #0b2a20, 0 0 0 4px var(--c); }
+.lobbyHero .av:first-child { margin-left: 0; }
+#charPick { display: flex; flex-direction: column; gap: 6px; }
+#charPick .cpl { font-size: 13px; color: var(--muted); }
+.cpick { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.ci { aspect-ratio: 1; cursor: pointer; box-shadow: 0 0 0 2px rgba(255,255,255,.15); opacity: .75; transition: transform .1s; }
+.ci.on { opacity: 1; box-shadow: 0 0 0 3px var(--c), 0 0 12px var(--c); transform: scale(1.06); }
+#charRing { position: absolute; inset: 0; pointer-events: none; z-index: 9; }
+.ring { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ring .big { width: var(--sz); height: var(--sz); box-shadow: 0 0 0 3px var(--c), 0 5px 12px rgba(0,0,0,.45); }
+.ring .nm { background: rgba(0,0,0,.6); color: #fff; font-weight: 800; font-size: 12px; padding: 1px 9px; border-radius: 999px; white-space: nowrap; font-family: system-ui, sans-serif; }
+.ring .nm b { color: var(--accent); margin-left: 4px; }
+.cutin { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; pointer-events: none; animation: cutIn .25s ease-out both; }
+.cutin.out { animation: cutOut .4s ease-in both; }
+.cutin .band { position: absolute; left: 0; right: 0; height: 42%; top: 29%; background: linear-gradient(90deg, transparent, var(--c) 18%, var(--c) 82%, transparent); opacity: .92; transform: skewY(-6deg); }
+.cutin .big { position: relative; width: min(42vh, 52vw); aspect-ratio: 1; box-shadow: 0 0 0 6px #fff, 0 0 30px rgba(0,0,0,.5); margin-right: 3vw; }
+.cutin .word { position: relative; font-size: min(15vh, 14vw); font-weight: 900; color: #fff; letter-spacing: .05em; -webkit-text-stroke: 3px #3a1a00; text-shadow: 0 6px 0 rgba(0,0,0,.35); }
+.cutin .who { position: absolute; bottom: 22%; color: #fff; font-weight: 900; font-size: min(4vh, 5vw); text-shadow: 0 2px 4px #000; }
+@keyframes cutIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+@keyframes cutOut { to { opacity: 0; transform: translateX(30px); } }
+
 :root { color-scheme: dark; }
 html, body { height: 100%; }
 body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt-dark) 75%); background-color: var(--felt-dark); }
@@ -665,8 +691,10 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
 <section id="lobby" class="screen">
   <div class="card">
     <h1>友達麻雀</h1>
+    <div id="lobbyHero"></div>
     <p class="sub">四人打ち・友達対戦専用</p>
     <label>名前<input id="name" maxlength="12" placeholder="ニックネーム" autocomplete="nickname"></label>
+    <div id="charPick"><div class="cpl">キャラを選ぶ</div><div class="cpick"></div></div>
     <p class="sub">東風戦・25000点持ち・祝儀あり</p>
     <button id="btnCreate" class="primary">部屋を作る</button>
     <div class="divider"><span>または</span></div>
@@ -3052,6 +3080,123 @@ window.FX = (function () {
   return { run, forResult };
 })();
 
+// オリジナルのちびキャラ（SVG）。表情：normal（ふつう）・happy（和了）・riichi（気合い）・sad（振り込み）
+'use strict';
+(function () {
+  const CHARS = [
+    { id: 'rin', name: 'りん', hair: '#e8434f', hairDark: '#b72634', eye: '#c42a3a', style: 'twin', acc: 'pinRed', outfit: '#ffffff', collar: '#e8434f' },
+    { id: 'kohaku', name: 'こはく', hair: '#f2c14e', hairDark: '#c8952a', eye: '#b8860b', style: 'long', acc: 'ribbonGold', outfit: '#fff7e0', collar: '#d9a52b' },
+    { id: 'shizuku', name: 'しずく', hair: '#5fc4f0', hairDark: '#2f95c8', eye: '#1a9be0', style: 'bob', acc: 'drop', outfit: '#eef8ff', collar: '#1a9be0' },
+    { id: 'nanami', name: 'ななみ', hair: 'rainbow', hairDark: '#8a5bd6', eye: '#7b2cbf', style: 'pony', acc: 'star', outfit: '#ffffff', collar: '#8338ec' },
+    { id: 'pochi', name: 'ぽち', hair: '#f4f1ea', hairDark: '#c9c2b2', eye: '#2f78c4', style: 'cat', acc: 'pocchi', outfit: '#e9f4ff', collar: '#2f78c4' },
+    { id: 'daiya', name: 'ダイヤ', hair: '#2b2b38', hairDark: '#14141c', eye: '#5a6cff', style: 'short', acc: 'diamond', outfit: '#f2f2f7', collar: '#2b2b38' },
+  ];
+  const SKIN = '#ffe4d6', SKIN_SH = '#f6c9b6', LINE = '#5a3a3a';
+
+  function defs(c, uid) {
+    let d = '';
+    if (c.hair === 'rainbow') {
+      d += `<linearGradient id="h${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6b8a"/><stop offset=".25" stop-color="#ffb84d"/><stop offset=".5" stop-color="#7ed957"/><stop offset=".75" stop-color="#5ab8ff"/><stop offset="1" stop-color="#b07cff"/></linearGradient>`;
+    }
+    d += `<radialGradient id="e${uid}" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".55" stop-color="${c.eye}"/><stop offset="1" stop-color="#1d1030"/></radialGradient>`;
+    return `<defs>${d}</defs>`;
+  }
+  const hairFill = (c, uid) => (c.hair === 'rainbow' ? `url(#h${uid})` : c.hair);
+
+  // 顔より後ろの髪
+  function backHair(c, H) {
+    switch (c.style) {
+      case 'twin': return `<ellipse cx="17" cy="60" rx="11" ry="22" fill="${H}" transform="rotate(12 17 60)"/><ellipse cx="83" cy="60" rx="11" ry="22" fill="${H}" transform="rotate(-12 83 60)"/>` +
+        `<circle cx="22" cy="36" r="6" fill="${c.collar}"/><circle cx="78" cy="36" r="6" fill="${c.collar}"/>`;
+      case 'long': return `<path d="M18 46 Q14 80 22 98 L78 98 Q86 80 82 46 Z" fill="${H}"/>`;
+      case 'bob': return `<path d="M20 48 Q16 74 28 80 L72 80 Q84 74 80 48 Z" fill="${H}"/>`;
+      case 'pony': return `<path d="M74 28 Q100 30 94 62 Q90 82 80 88 Q88 64 76 40 Z" fill="${H}"/><circle cx="76" cy="28" r="5" fill="${c.collar}"/>`;
+      case 'cat': return `<path d="M22 48 Q18 70 26 76 L74 76 Q82 70 78 48 Z" fill="${H}"/>`;
+      default: return `<path d="M24 50 Q22 66 28 70 L72 70 Q78 66 76 50 Z" fill="${H}"/>`;
+    }
+  }
+  // 前髪と頭の上
+  function frontHair(c, H, D) {
+    let s = `<path d="M21 52 Q18 18 50 16 Q82 18 79 52 Q74 38 66 34 Q62 44 52 46 Q56 36 54 32 Q44 44 30 44 Q34 38 34 34 Q26 40 21 52 Z" fill="${H}" stroke="${D}" stroke-width="1"/>`;
+    s += `<path d="M34 22 Q44 18 54 20" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>`; // つや
+    if (c.style === 'cat') s += `<path d="M24 30 L22 8 L40 20 Z" fill="${H}" stroke="${D}" stroke-width="1"/><path d="M27 25 L26 13 L35 20 Z" fill="#f7b8c4"/>` +
+      `<path d="M76 30 L78 8 L60 20 Z" fill="${H}" stroke="${D}" stroke-width="1"/><path d="M73 25 L74 13 L65 20 Z" fill="#f7b8c4"/>`;
+    if (c.style === 'short') s += `<path d="M58 18 Q70 10 74 20" fill="none" stroke="${H}" stroke-width="4" stroke-linecap="round"/>`; // アホ毛
+    return s;
+  }
+  function accessory(c) {
+    switch (c.acc) {
+      case 'pinRed': return `<g transform="translate(66 30) rotate(20)"><rect x="-7" y="-2.5" width="14" height="5" rx="2.5" fill="#fff" stroke="#e8434f" stroke-width="1.5"/><text x="0" y="1.6" font-size="5" text-anchor="middle" fill="#e8434f" font-weight="900" font-family="sans-serif">5</text></g>`;
+      case 'ribbonGold': return `<g transform="translate(70 26)"><path d="M0 0 L-9 -6 L-9 6 Z M0 0 L9 -6 L9 6 Z" fill="#f5c542" stroke="#b8860b" stroke-width="1"/><circle r="2.6" fill="#ffdf6e" stroke="#b8860b" stroke-width="1"/></g>`;
+      case 'drop': return `<path d="M30 24 Q34 30 30 33 Q26 30 30 24 Z" fill="#9fdcff" stroke="#1a9be0" stroke-width="1"/><circle cx="29" cy="30" r=".9" fill="#fff"/>`;
+      case 'star': return `<path d="M30 20 L32.4 25.6 L38 26 L33.6 29.6 L35 35 L30 32 L25 35 L26.4 29.6 L22 26 L27.6 25.6 Z" fill="#ffd84d" stroke="#e0a800" stroke-width="1"/>`;
+      case 'pocchi': return `<circle cx="50" cy="27" r="3.8" fill="#8fd0ff" stroke="#2f78c4" stroke-width="1.2"/><circle cx="48.8" cy="25.8" r="1.1" fill="#fff"/>`;
+      case 'diamond': return `<g transform="translate(68 30)"><path d="M0 -6 L5 0 L0 7 L-5 0 Z" fill="#9db0ff" stroke="#3b4bd6" stroke-width="1"/><path d="M0 -6 L1.6 0 L0 7" fill="none" stroke="#fff" stroke-width=".7" opacity=".8"/></g>`;
+    }
+    return '';
+  }
+  function eyes(c, uid, expr) {
+    if (expr === 'happy') {
+      return `<path d="M32 56 Q39 48 46 56" fill="none" stroke="${LINE}" stroke-width="2.6" stroke-linecap="round"/>` +
+        `<path d="M54 56 Q61 48 68 56" fill="none" stroke="${LINE}" stroke-width="2.6" stroke-linecap="round"/>`;
+    }
+    const one = (x) => {
+      let s = `<ellipse cx="${x}" cy="56" rx="6.6" ry="8.2" fill="#fff"/>` +
+        `<ellipse cx="${x}" cy="57" rx="5.6" ry="7.4" fill="url(#e${uid})"/>` +
+        `<ellipse cx="${x}" cy="58" rx="2.6" ry="3.6" fill="#1d1030"/>` +
+        `<circle cx="${x - 2}" cy="53.5" r="2.1" fill="#fff"/><circle cx="${x + 2.2}" cy="60" r="1" fill="#fff"/>`;
+      // まつげ（上のふち）
+      s += `<path d="M${x - 7.4} 52 Q${x} 45.5 ${x + 7.4} 52" fill="none" stroke="${LINE}" stroke-width="2.4" stroke-linecap="round"/>`;
+      if (expr === 'sad') { const o = x < 50 ? -1 : 1; // 外側（目じり）が下がる
+        s += `<path d="M${x - 7.6 * o} 53.5 L${x + 7.6 * o} 50 L${x + 7.6 * o} 44 L${x - 7.6 * o} 44 Z" fill="${SKIN}"/>` +
+          `<path d="M${x - 7.6 * o} 53.5 L${x + 7.6 * o} 50" stroke="${LINE}" stroke-width="2.4" stroke-linecap="round"/>`; }
+      if (expr === 'riichi') s += `<path d="M${x - 7.6} 51 L${x + 7.6} 53.5 L${x + 7.6} 47 L${x - 7.6} 45 Z" fill="${SKIN}"/>` +
+        `<path d="M${x - 7.6} 51 L${x + 7.6} 53.5" stroke="${LINE}" stroke-width="2.4" stroke-linecap="round"/>`;
+      return s;
+    };
+    let s = one(39) + one(61);
+    if (expr === 'riichi') { // 左右の目を少し内向きのつり目に（右目は反転）
+      s = one(39);
+      const r = one(61).replace(/M(\d+\.?\d*) 51 L(\d+\.?\d*) 53\.5 L(\d+\.?\d*) 47 L(\d+\.?\d*) 45 Z/, (m, a, b, c2, d) => `M${a} 53.5 L${b} 51 L${c2} 45 L${d} 47 Z`).replace(/M(\d+\.?\d*) 51 L(\d+\.?\d*) 53\.5"/, (m, a, b) => `M${a} 53.5 L${b} 51"`);
+      s += r;
+    }
+    return s;
+  }
+  function mouth(expr) {
+    if (expr === 'happy') return `<path d="M44 66 Q50 74 56 66 Z" fill="#c4384a" stroke="${LINE}" stroke-width="1.4" stroke-linejoin="round"/><path d="M46.5 69.5 Q50 72 53.5 69.5" fill="#ff8fa0"/>`;
+    if (expr === 'riichi') return `<path d="M45 68 L55 67" stroke="${LINE}" stroke-width="2" stroke-linecap="round"/>`;
+    if (expr === 'sad') return `<path d="M45 69.5 Q47.5 66.5 50 68.5 Q52.5 66.5 55 69.5" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linecap="round"/>`;
+    return `<path d="M46 67 Q48 69.4 50 67 Q52 69.4 54 67" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linecap="round"/>`;
+  }
+  function extra(c, expr) {
+    if (expr === 'happy') return `<g fill="#ffd84d"><path d="M10 26 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z"/><path d="M88 18 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4z"/></g>`;
+    if (expr === 'sad') return `<path d="M28 60 Q25.5 65 28 67 Q30.5 65 28 60 Z" fill="#8fd0ff" stroke="#3a8fd6" stroke-width=".8"/>` +
+      `<g stroke="#6f8fd6" stroke-width="1.6" stroke-linecap="round" opacity=".8"><path d="M38 34 v7"/><path d="M45 32 v8"/><path d="M52 32 v8"/><path d="M59 34 v7"/></g>`;
+    if (expr === 'riichi') return `<g stroke="#ff6b3d" stroke-width="2.4" stroke-linecap="round"><path d="M86 30 l8 -6"/><path d="M88 40 l9 -1"/><path d="M84 22 l4 -9"/></g>`;
+    return '';
+  }
+
+  let uidN = 0;
+  window.CHARACTERS = CHARS.map(c => ({ id: c.id, name: c.name, color: c.collar }));
+  window.charSVG = function (id, expr = 'normal') {
+    const c = CHARS.find(x => x.id === id) || CHARS[0];
+    const uid = c.id + (uidN++);
+    const H = hairFill(c, uid), D = c.hairDark;
+    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${defs(c, uid)}` +
+      backHair(c, H) +
+      // 体（えり付きの服）
+      `<path d="M26 100 Q28 82 50 80 Q72 82 74 100 Z" fill="${c.outfit}" stroke="${D}" stroke-width="1"/>` +
+      `<path d="M40 82 L50 92 L60 82" fill="${c.collar}"/>` +
+      `<rect x="45" y="74" width="10" height="9" rx="3" fill="${SKIN_SH}"/>` +
+      // 顔
+      `<ellipse cx="50" cy="54" rx="28" ry="26" fill="${SKIN}"/>` +
+      `<ellipse cx="33" cy="64" rx="5" ry="3" fill="#ff9aaa" opacity=".55"/><ellipse cx="67" cy="64" rx="5" ry="3" fill="#ff9aaa" opacity=".55"/>` +
+      eyes(c, uid, expr) + mouth(expr) +
+      frontHair(c, H, D) + accessory(c) + extra(c, expr) +
+      `</svg>`;
+  };
+})();
+
 // 一人用（CPU3人）：サーバーなしでブラウザだけで動かす
 'use strict';
 window.SOLO = (function () {
@@ -3060,14 +3205,27 @@ window.SOLO = (function () {
   const BOT_DELAY = 550;
   let handlers, game, you, botTimer, autoTimer, watch = false, players = [];
   const history = [];
-  const roomInfo = () => ({ code: 'CPU', settings: {}, seats: players.map(p => ({ name: p.name, isBot: p.isBot, online: true })), started: true, you, isHost: true, solo: true, history: history.map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })) });
+  // キャラを変える（CPUと同じキャラなら入れ替える）
+  function setChar(c) {
+    if (!players[you]) return;
+    const other = players.find((p, i) => i !== you && p.char === c);
+    if (other) other.char = players[you].char;
+    players[you].char = c;
+    handlers.room(roomInfo()); handlers.state(game.viewFor(you));
+  }
+  const roomInfo = () => ({ code: 'CPU', settings: {}, seats: players.map(p => ({ name: p.name, char: p.char, isBot: p.isBot, online: true })), started: true, you, isHost: true, solo: true, history: history.map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })) });
 
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
   function newGame() {
     clearTimeout(botTimer); clearTimeout(autoTimer);
     const order = shuffle([0, 1, 2, 3]);
-    players = order.map(i => ({ name: NAMES[i], isBot: i !== 0 }));
+    // キャラ：自分はロビーで選んだもの、CPUは残りから
+    const CH = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+    let mine = null; try { mine = localStorage.getItem('mj_char'); } catch (e) { /* noop */ }
+    if (!CH.includes(mine)) mine = CH[2];
+    const rest = shuffle(CH.filter(c => c !== mine));
+    players = order.map(i => ({ name: NAMES[i], isBot: i !== 0, char: i === 0 ? mine : rest[i - 1] }));
     you = order.indexOf(0);
     game = new Game(players, {}, update);
     handlers.room(roomInfo());
@@ -3123,7 +3281,7 @@ window.SOLO = (function () {
     if (watch && game.gameOver && game.phase === 'result') { newGame(); return; }
     schedule();
   }
-  return { start(h) { handlers = h; newGame(); }, api, setWatch };
+  return { start(h) { handlers = h; newGame(); }, api, setWatch, setChar };
 })();
 
 'use strict';
@@ -3206,11 +3364,96 @@ function onState(data) {
   // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
   if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
+  try { charCutins(prevS, S); } catch (e) { /* 演出の失敗は無視 */ }
   if (!S.actions || S.phase !== 'discard') riichiMode = false;
   subMenu = null;
   show('#table');
   renderTable();
 }
+// ================= キャラ =================
+const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+function myChar() {
+  const c = ls.get('mj_char'); if (CHAR_IDS.includes(c)) return c;
+  const r = CHAR_IDS[Math.floor(Math.random() * CHAR_IDS.length)]; ls.set('mj_char', r); return r;
+}
+const charColor = (id) => { const c = (window.CHARACTERS || []).find(x => x.id === id); return c ? c.color : '#888'; };
+function avatarEl(id, expr, cls = 'av') {
+  const d = h('div', cls); id = CHAR_IDS.includes(id) ? id : 'shizuku';
+  d.style.setProperty('--c', charColor(id)); if (window.charSVG) d.innerHTML = charSVG(id, expr); return d;
+}
+// 席のキャラ（対局中は ROOM.seats と S.players が同じ並び）
+const seatChar = (seat) => (ROOM && ROOM.seats && ROOM.seats[seat] && ROOM.seats[seat].char) || CHAR_IDS[seat % CHAR_IDS.length];
+// ロビー：キャラを並べて飾る＋選ぶ
+(function lobbyChars() {
+  if (!window.CHARACTERS) return;
+  const hero = $('#lobbyHero'); hero.className = 'lobbyHero';
+  CHARACTERS.forEach(c => hero.append(avatarEl(c.id)));
+  const g = $('#charPick .cpick');
+  const draw = () => { g.innerHTML = ''; const mine = myChar(); CHARACTERS.forEach(c => { const i = avatarEl(c.id, 'normal', 'ci' + (c.id === mine ? ' on' : '')); i.title = c.name; i.onclick = () => { ls.set('mj_char', c.id); draw(); }; g.append(i); }); };
+  draw();
+})();
+// 対局中：4人のキャラを盤のまわりに。表情は リーチ・和了・振り込み で変わる
+function charExpr(seat) {
+  const R = S.result;
+  if (S.gameOver) { const r = S.gameOver.find(x => x.seat === seat); if (r) return r.rank === 1 ? 'happy' : r.rank === 4 ? 'sad' : 'normal'; }
+  if (S.phase === 'result' && R && R.type === 'agari') {
+    if (R.wins.some(w => w.seat === seat)) return 'happy';
+    if (R.wins.some(w => !w.tsumo && w.from === seat)) return 'sad';
+  }
+  return S.players[seat].riichi ? 'riichi' : 'normal';
+}
+function renderChars() {
+  let box = $('#charRing');
+  if (!box) { box = h('div', ''); box.id = 'charRing'; $('#table').append(box); }
+  box.innerHTML = '';
+  if (!S || !window.charSVG || $('#table').classList.contains('hidden')) return;
+  const land = innerWidth > innerHeight;
+  const hand = $('#me').getBoundingClientRect(), board = $('#board').getBoundingClientRect(), W = innerWidth;
+  const sz = land ? Math.max(44, Math.min(92, board.left - 60)) : 56;
+  for (let seat = 0; seat < 4; seat++) {
+    const r = rel(seat), id = seatChar(seat), p = S.players[seat];
+    const el = h('div', 'ring'); el.style.setProperty('--c', charColor(id)); el.style.setProperty('--sz', sz + 'px');
+    el.append(avatarEl(id, charExpr(seat), 'big'));
+    const nm = h('div', 'nm', p.name); nm.append(h('b', '', p.score.toLocaleString())); el.append(nm);
+    box.append(el);
+    const b = el.getBoundingClientRect();
+    let x, y;
+    if (land) {
+      const lx = Math.max(8, (board.left - b.width) / 2), rx = W - Math.max(8, (W - board.right - b.width) / 2) - b.width;
+      x = r === 0 || r === 3 ? lx : rx;
+      y = r === 0 || r === 1 ? hand.top - b.height - 10 : 64;
+    } else {
+      // 縦向き：自分は手牌の左上、ほかの3人は盤の上に左・真ん中・右
+      if (r === 0) { x = 8; y = hand.top - b.height - 6; }
+      else { x = r === 3 ? 8 : r === 2 ? (W - b.width) / 2 : W - b.width - 8; y = Math.max(4, board.top - b.height + 6); }
+    }
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+}
+// リーチ・ツモ・ロンのときに、その人のキャラが大きく出る（同じ演出は一度だけ）
+const cutinSeen = new Set();
+function charCutin(seat, word) {
+  if (!window.charSVG) return;
+  const id = seatChar(seat);
+  const d = h('div', 'cutin'); d.style.setProperty('--c', charColor(id));
+  d.append(h('div', 'band'), avatarEl(id, word === 'リーチ' ? 'riichi' : 'happy', 'big'), h('div', 'word', word + '！'), h('div', 'who', S.players[seat].name));
+  document.body.append(d);
+  setTimeout(() => d.classList.add('out'), 1000);
+  setTimeout(() => d.remove(), 1400);
+}
+function charCutins(a, b) {
+  if (!a || !b || !b.players || a.gid !== b.gid) return;
+  const key = (k) => `${b.gid}|${b.round && b.round.title}|${k}`;
+  if (b.phase === 'result' && b.result && b.result.type === 'agari') {
+    const w = b.result.wins[0];
+    if (w && !cutinSeen.has(key('win'))) { cutinSeen.add(key('win')); charCutin(w.seat, w.tsumo ? 'ツモ' : 'ロン'); }
+    return;
+  }
+  b.players.forEach((p, s) => {
+    if (p.riichi && a.players[s] && !a.players[s].riichi && !cutinSeen.has(key('r' + s))) { cutinSeen.add(key('r' + s)); charCutin(s, 'リーチ'); }
+  });
+}
+
 // 状態の変化から効果音を決める
 let sndSnap = null;
 function soundFor(a, b) {
@@ -3270,13 +3513,13 @@ function myName() {
 }
 $('#btnCreate').onclick = async () => {
   const name = myName(); if (!name) return;
-  await api('create', { name });
+  await api('create', { name, char: myChar() });
 };
 $('#btnJoin').onclick = async () => {
   const name = myName(); if (!name) return;
   const code = $('#code').value.trim();
   if (!/^\d{4}$/.test(code)) { $('#lobbyMsg').textContent = '4桁の部屋番号を入力してください'; return; }
-  const r = await api('join', { name, code });
+  const r = await api('join', { name, code, char: myChar() });
   if (r.error) $('#lobbyMsg').textContent = r.error;
 };
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJoin').click(); });
@@ -3293,7 +3536,7 @@ function renderRoom() {
     const li = h('li', s ? '' : 'empty');
     if (!s) { li.textContent = '空席'; ul.append(li); return; }
     const dot = h('span', 'dot' + (s.online ? '' : ' off'));
-    li.append(dot, h('span', 'nm', s.name));
+    li.append(avatarEl(s.char), dot, h('span', 'nm', s.name));
     if (i === ROOM.you) li.append(h('span', 'tag', 'あなた'));
     if (s.isBot) li.append(h('span', 'tag', 'CPU'));
     else li.append(h('span', 'tag ' + (s.ready ? 'ok' : 'wait'), s.ready ? '準備OK' : '準備中'));
@@ -3653,6 +3896,13 @@ $('#autoWin').onchange = () => S && autoPlay();
 $('#noCall').onchange = () => { if (S) { api('act', { action: { type: 'noCall', on: $('#noCall').checked } }); autoPlay(); } };
 if (window.SFX) { $('#sound').value = SFX.mode; $('#sound').onchange = (e) => { SFX.setMode(e.target.value); if (e.target.value !== 'off') SFX.play('turn'); }; }
 if (window.SOLO) {
+  // 一人打ち：ロビーがないので、設定からキャラを選ぶ
+  if (window.CHARACTERS) {
+    const lb = h('label', '', 'キャラ '); const sel = h('select');
+    CHARACTERS.forEach(c => { const o = h('option', '', c.name); o.value = c.id; sel.append(o); });
+    sel.value = myChar(); sel.onchange = () => { ls.set('mj_char', sel.value); window.SOLO.setChar(sel.value); };
+    lb.append(sel); $('#opts').append(lb);
+  }
   $('#watchOpt').classList.remove('hidden');
   $('#watch').onchange = () => window.SOLO.setWatch($('#watch').checked);
 }
@@ -4087,6 +4337,7 @@ function fitLayout() {
     b.style.transform = `translate(-50%, -50%) scale(${scale})`;
     $('#boardWrap').style.flex = `0 0 ${availH}px`;
   }
+  try { renderChars(); } catch (e) { /* キャラの表示の失敗は無視 */ }
 }
 // 画面の実際の高さ（LINEなどアプリ内ブラウザで下が隠れないように）
 function setAppHeight() {

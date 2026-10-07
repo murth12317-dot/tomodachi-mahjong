@@ -78,11 +78,96 @@ function onState(data) {
   // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
   if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
+  try { charCutins(prevS, S); } catch (e) { /* 演出の失敗は無視 */ }
   if (!S.actions || S.phase !== 'discard') riichiMode = false;
   subMenu = null;
   show('#table');
   renderTable();
 }
+// ================= キャラ =================
+const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+function myChar() {
+  const c = ls.get('mj_char'); if (CHAR_IDS.includes(c)) return c;
+  const r = CHAR_IDS[Math.floor(Math.random() * CHAR_IDS.length)]; ls.set('mj_char', r); return r;
+}
+const charColor = (id) => { const c = (window.CHARACTERS || []).find(x => x.id === id); return c ? c.color : '#888'; };
+function avatarEl(id, expr, cls = 'av') {
+  const d = h('div', cls); id = CHAR_IDS.includes(id) ? id : 'shizuku';
+  d.style.setProperty('--c', charColor(id)); if (window.charSVG) d.innerHTML = charSVG(id, expr); return d;
+}
+// 席のキャラ（対局中は ROOM.seats と S.players が同じ並び）
+const seatChar = (seat) => (ROOM && ROOM.seats && ROOM.seats[seat] && ROOM.seats[seat].char) || CHAR_IDS[seat % CHAR_IDS.length];
+// ロビー：キャラを並べて飾る＋選ぶ
+(function lobbyChars() {
+  if (!window.CHARACTERS) return;
+  const hero = $('#lobbyHero'); hero.className = 'lobbyHero';
+  CHARACTERS.forEach(c => hero.append(avatarEl(c.id)));
+  const g = $('#charPick .cpick');
+  const draw = () => { g.innerHTML = ''; const mine = myChar(); CHARACTERS.forEach(c => { const i = avatarEl(c.id, 'normal', 'ci' + (c.id === mine ? ' on' : '')); i.title = c.name; i.onclick = () => { ls.set('mj_char', c.id); draw(); }; g.append(i); }); };
+  draw();
+})();
+// 対局中：4人のキャラを盤のまわりに。表情は リーチ・和了・振り込み で変わる
+function charExpr(seat) {
+  const R = S.result;
+  if (S.gameOver) { const r = S.gameOver.find(x => x.seat === seat); if (r) return r.rank === 1 ? 'happy' : r.rank === 4 ? 'sad' : 'normal'; }
+  if (S.phase === 'result' && R && R.type === 'agari') {
+    if (R.wins.some(w => w.seat === seat)) return 'happy';
+    if (R.wins.some(w => !w.tsumo && w.from === seat)) return 'sad';
+  }
+  return S.players[seat].riichi ? 'riichi' : 'normal';
+}
+function renderChars() {
+  let box = $('#charRing');
+  if (!box) { box = h('div', ''); box.id = 'charRing'; $('#table').append(box); }
+  box.innerHTML = '';
+  if (!S || !window.charSVG || $('#table').classList.contains('hidden')) return;
+  const land = innerWidth > innerHeight;
+  const hand = $('#me').getBoundingClientRect(), board = $('#board').getBoundingClientRect(), W = innerWidth;
+  const sz = land ? Math.max(44, Math.min(92, board.left - 60)) : 56;
+  for (let seat = 0; seat < 4; seat++) {
+    const r = rel(seat), id = seatChar(seat), p = S.players[seat];
+    const el = h('div', 'ring'); el.style.setProperty('--c', charColor(id)); el.style.setProperty('--sz', sz + 'px');
+    el.append(avatarEl(id, charExpr(seat), 'big'));
+    const nm = h('div', 'nm', p.name); nm.append(h('b', '', p.score.toLocaleString())); el.append(nm);
+    box.append(el);
+    const b = el.getBoundingClientRect();
+    let x, y;
+    if (land) {
+      const lx = Math.max(8, (board.left - b.width) / 2), rx = W - Math.max(8, (W - board.right - b.width) / 2) - b.width;
+      x = r === 0 || r === 3 ? lx : rx;
+      y = r === 0 || r === 1 ? hand.top - b.height - 10 : 64;
+    } else {
+      // 縦向き：自分は手牌の左上、ほかの3人は盤の上に左・真ん中・右
+      if (r === 0) { x = 8; y = hand.top - b.height - 6; }
+      else { x = r === 3 ? 8 : r === 2 ? (W - b.width) / 2 : W - b.width - 8; y = Math.max(4, board.top - b.height + 6); }
+    }
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+}
+// リーチ・ツモ・ロンのときに、その人のキャラが大きく出る（同じ演出は一度だけ）
+const cutinSeen = new Set();
+function charCutin(seat, word) {
+  if (!window.charSVG) return;
+  const id = seatChar(seat);
+  const d = h('div', 'cutin'); d.style.setProperty('--c', charColor(id));
+  d.append(h('div', 'band'), avatarEl(id, word === 'リーチ' ? 'riichi' : 'happy', 'big'), h('div', 'word', word + '！'), h('div', 'who', S.players[seat].name));
+  document.body.append(d);
+  setTimeout(() => d.classList.add('out'), 1000);
+  setTimeout(() => d.remove(), 1400);
+}
+function charCutins(a, b) {
+  if (!a || !b || !b.players || a.gid !== b.gid) return;
+  const key = (k) => `${b.gid}|${b.round && b.round.title}|${k}`;
+  if (b.phase === 'result' && b.result && b.result.type === 'agari') {
+    const w = b.result.wins[0];
+    if (w && !cutinSeen.has(key('win'))) { cutinSeen.add(key('win')); charCutin(w.seat, w.tsumo ? 'ツモ' : 'ロン'); }
+    return;
+  }
+  b.players.forEach((p, s) => {
+    if (p.riichi && a.players[s] && !a.players[s].riichi && !cutinSeen.has(key('r' + s))) { cutinSeen.add(key('r' + s)); charCutin(s, 'リーチ'); }
+  });
+}
+
 // 状態の変化から効果音を決める
 let sndSnap = null;
 function soundFor(a, b) {
@@ -142,13 +227,13 @@ function myName() {
 }
 $('#btnCreate').onclick = async () => {
   const name = myName(); if (!name) return;
-  await api('create', { name });
+  await api('create', { name, char: myChar() });
 };
 $('#btnJoin').onclick = async () => {
   const name = myName(); if (!name) return;
   const code = $('#code').value.trim();
   if (!/^\d{4}$/.test(code)) { $('#lobbyMsg').textContent = '4桁の部屋番号を入力してください'; return; }
-  const r = await api('join', { name, code });
+  const r = await api('join', { name, code, char: myChar() });
   if (r.error) $('#lobbyMsg').textContent = r.error;
 };
 $('#code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJoin').click(); });
@@ -165,7 +250,7 @@ function renderRoom() {
     const li = h('li', s ? '' : 'empty');
     if (!s) { li.textContent = '空席'; ul.append(li); return; }
     const dot = h('span', 'dot' + (s.online ? '' : ' off'));
-    li.append(dot, h('span', 'nm', s.name));
+    li.append(avatarEl(s.char), dot, h('span', 'nm', s.name));
     if (i === ROOM.you) li.append(h('span', 'tag', 'あなた'));
     if (s.isBot) li.append(h('span', 'tag', 'CPU'));
     else li.append(h('span', 'tag ' + (s.ready ? 'ok' : 'wait'), s.ready ? '準備OK' : '準備中'));
@@ -525,6 +610,13 @@ $('#autoWin').onchange = () => S && autoPlay();
 $('#noCall').onchange = () => { if (S) { api('act', { action: { type: 'noCall', on: $('#noCall').checked } }); autoPlay(); } };
 if (window.SFX) { $('#sound').value = SFX.mode; $('#sound').onchange = (e) => { SFX.setMode(e.target.value); if (e.target.value !== 'off') SFX.play('turn'); }; }
 if (window.SOLO) {
+  // 一人打ち：ロビーがないので、設定からキャラを選ぶ
+  if (window.CHARACTERS) {
+    const lb = h('label', '', 'キャラ '); const sel = h('select');
+    CHARACTERS.forEach(c => { const o = h('option', '', c.name); o.value = c.id; sel.append(o); });
+    sel.value = myChar(); sel.onchange = () => { ls.set('mj_char', sel.value); window.SOLO.setChar(sel.value); };
+    lb.append(sel); $('#opts').append(lb);
+  }
   $('#watchOpt').classList.remove('hidden');
   $('#watch').onchange = () => window.SOLO.setWatch($('#watch').checked);
 }
@@ -959,6 +1051,7 @@ function fitLayout() {
     b.style.transform = `translate(-50%, -50%) scale(${scale})`;
     $('#boardWrap').style.flex = `0 0 ${availH}px`;
   }
+  try { renderChars(); } catch (e) { /* キャラの表示の失敗は無視 */ }
 }
 // 画面の実際の高さ（LINEなどアプリ内ブラウザで下が隠れないように）
 function setAppHeight() {
