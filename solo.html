@@ -3425,7 +3425,11 @@ function renderChars() {
   if (!S || !window.charSVG || $('#table').classList.contains('hidden')) return;
   const land = innerWidth > innerHeight;
   const hand = $('#me').getBoundingClientRect(), board = $('#board').getBoundingClientRect(), W = innerWidth;
-  const sz = land ? Math.max(44, Math.min(92, board.left - 60)) : 56;
+  // 横向き：左右に2人ずつ縦に並ぶので、ドラ表示・設定ボタンの下から手牌の上までに2人分が収まる大きさにする
+  const db = $('#doraBox'), topY = Math.max(64, db && db.getClientRects().length ? db.getBoundingClientRect().bottom + 8 : 0);
+  const NAME_H = 24; // 名前と点数の札の高さ
+  const fitH = (hand.top - 10 - topY - 6) / 2 - NAME_H;
+  const sz = land ? Math.max(28, Math.min(72, board.left - 60, fitH)) : 56;
   for (let seat = 0; seat < 4; seat++) {
     const r = rel(seat), id = seatChar(seat), p = S.players[seat];
     const el = h('div', 'ring'); el.style.setProperty('--c', charColor(id)); el.style.setProperty('--sz', sz + 'px');
@@ -3437,7 +3441,7 @@ function renderChars() {
     if (land) {
       const lx = Math.max(8, (board.left - b.width) / 2), rx = W - Math.max(8, (W - board.right - b.width) / 2) - b.width;
       x = r === 0 || r === 3 ? lx : rx;
-      y = r === 0 || r === 1 ? hand.top - b.height - 10 : 64;
+      y = r === 0 || r === 1 ? hand.top - b.height - 10 : topY;
     } else {
       // 縦向き：自分は手牌の左上、ほかの3人は盤の上に左・真ん中・右
       if (r === 0) { x = 8; y = hand.top - b.height - 6; }
