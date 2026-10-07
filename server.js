@@ -36,10 +36,11 @@ const pidOf = (token) => crypto.createHash('sha256').update(String(token)).diges
 // 成績ページ用に、半荘の生の結果を保存する（records.js → GitHub の data ブランチ）
 // 場代：1半荘ごとにトップから祝儀 FEE_CHIPS 枚（×倍率）を引き、FEE_TO の人に足す。記録した時点の値で残す
 const FEE_CHIPS = +(process.env.FEE_CHIPS ?? 1), FEE_TO = process.env.FEE_TO || 'あつや';
+const DEFAULT_RATE = 100; // 部屋を作ったときの倍率
 function saveRecord(room) {
   const g = room.game;
   records.add({
-    id: room.gameKey, at: new Date().toISOString(), room: room.code, rate: room.gameRate || 1,
+    id: room.gameKey, at: new Date().toISOString(), room: room.code, rate: room.gameRate || DEFAULT_RATE,
     ...(FEE_CHIPS > 0 ? { fee: FEE_CHIPS, feeTo: FEE_TO } : {}),
     players: g.gameOver.slice().sort((a, b) => a.seat - b.seat).map(r => ({ name: r.name, rank: r.rank, score: r.score, chips: r.chips, cpu: !!room.seats[r.seat].isBot })),
   });
@@ -65,7 +66,7 @@ function roomSummary(room) {
     history: (room.history || []).map(x => ({ no: x.no, at: x.at, rows: x.rows, names: x.names })), // 牌譜は別に取りに来る
     code: room.code,
     settings: room.settings,
-    rate: room.rate || 1,
+    rate: room.rate || DEFAULT_RATE,
     seats: room.seats.map(s => s && { name: s.name, char: s.char, isBot: !!s.isBot, online: !!s.isBot || online(s.token), ready: !!s.isBot || s.token === room.hostToken || !!s.ready }),
     spectators: (room.spectators || []).filter(v => online(v.token)).map(v => v.name),
     started: !!room.game,
@@ -178,7 +179,7 @@ function startGame(room) {
   for (let i = 3; i > 0; i--) { const j = crypto.randomInt(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
   room.seats = order.map(i => room.seats[i]);
   room.gameKey = room.code + '-' + Date.now();
-  room.gameRate = room.rate || 1; // 対局中に変わらないよう、開始時の倍率で記録する
+  room.gameRate = room.rate || DEFAULT_RATE; // 対局中に変わらないよう、開始時の倍率で記録する
   room.game = new Game(room.seats.map(s => ({ name: s.name, isBot: !!s.isBot })), {}, () => broadcast(room));
   broadcast(room);
 }
