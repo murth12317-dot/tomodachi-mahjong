@@ -6,7 +6,7 @@
   const VARIANT = {
     red: { b: '#c4232b', g: '#c4232b', r: '#c4232b', k: '#c4232b' },
     gold: { b: '#a87700', g: '#a87700', r: '#a87700', k: '#a87700' },
-    blue: { b: '#1845c8', g: '#1845c8', r: '#1845c8', k: '#1845c8' },
+    blue: { b: '#1a9be0', g: '#1a9be0', r: '#1a9be0', k: '#1a9be0' }, // 水色（4筒の紺と見分けやすく）
     rainbow: 'rainbow',
   };
   const RAINBOW = ['#d62828', '#f77f00', '#e0b000', '#2a9d3f', '#1d6fd1', '#7b2cbf'];

@@ -90,7 +90,7 @@ label.inline { flex-direction: row; align-items: center; gap: 4px; color: var(--
 .tile.haku .n { width: 58%; height: 62%; border: calc(var(--w) * .06) solid #3b7bd0; border-radius: 3px; }
 .tile.c-red .n { color: var(--man) !important; }
 .tile.c-gold .n { color: #8a6200 !important; }
-.tile.c-blue .n { color: #1845a0 !important; }
+.tile.c-blue .n { color: #1a9be0 !important; }
 .tile.c-rainbow .n { color: #6a1b9a !important; }
 .tile.pocchi::after { display: none; }
 .tile.back { background: linear-gradient(160deg, #f0a543, var(--back)); box-shadow: 0 calc(var(--w) * .07) 0 #f6f1e1, 0 2px 3px rgba(0,0,0,.35); }
