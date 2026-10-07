@@ -159,6 +159,8 @@ function charCutins(a, b) {
   if (!a || !b || !b.players || a.gid !== b.gid) return;
   const key = (k) => `${b.gid}|${b.round && b.round.title}|${k}`;
   if (b.phase === 'result' && b.result && b.result.type === 'agari') {
+    // 大きな和了は稲妻の演出の中にキャラが出るので、ここでは出さない
+    if (window.FX && FX.tierFor && FX.tierFor(b.result).tier) return;
     const w = b.result.wins[0];
     if (w && !cutinSeen.has(key('win'))) { cutinSeen.add(key('win')); charCutin(w.seat, w.tsumo ? 'ツモ' : 'ロン'); }
     return;
@@ -176,7 +178,8 @@ function soundFor(a, b) {
   const cnt = (s, f) => s[f].reduce((n, x) => n + x.length, 0);
   const acts = (s) => s.actions || {};
   if (b.phase === 'result' && a.phase !== 'result') {
-    const big = window.FX && b.result && FX.forResult(b.result, b.players.map(p => p.name));
+    const big = window.FX && b.result && FX.forResult(b.result, b.players.map(p => p.name),
+      window.charSVG ? (seat) => ({ html: charSVG(seatChar(seat), 'happy'), color: charColor(seatChar(seat)) }) : null);
     if (!big) { if (b.result && b.result.type === 'agari') SFX.play('win'); else SFX.play('draw'); }
     sndSnap = null;
     return;

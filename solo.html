@@ -679,6 +679,11 @@ body.landscape .center .dora { display: none; }
 .cutin .who { position: absolute; bottom: 22%; color: #fff; font-weight: 900; font-size: min(4vh, 5vw); text-shadow: 0 2px 4px #000; }
 @keyframes cutIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
 @keyframes cutOut { to { opacity: 0; transform: translateX(30px); } }
+/* 大きな和了：稲妻と紙吹雪の中に、和了した人のキャラ */
+#fx .fx-char { position: absolute; left: 50%; top: 4%; width: min(26vh, 36vw); aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #fff6e8, #ffd9a8); box-shadow: 0 0 0 5px #fff, 0 0 0 9px var(--c, #ffd65a), 0 0 40px #ffe27a; animation: fxCharIn .6s cubic-bezier(.2,1.6,.4,1) both; }
+#fx .fx-char svg { width: 100%; height: 100%; display: block; }
+@keyframes fxCharIn { from { transform: translateX(-50%) scale(.2) rotate(-20deg); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
 
 :root { color-scheme: dark; }
 html, body { height: 100%; }
@@ -2978,7 +2983,7 @@ window.FX = (function () {
     if (layer) return layer;
     layer = document.createElement('div');
     layer.id = 'fx';
-    layer.innerHTML = '<canvas></canvas><div class="fx-flash"></div><div class="fx-text"></div>';
+    layer.innerHTML = '<canvas></canvas><div class="fx-flash"></div><div class="fx-char"></div><div class="fx-text"></div>';
     document.body.append(layer);
     return layer;
   }
@@ -3007,7 +3012,8 @@ window.FX = (function () {
     }
   }
 
-  function run(tier, chips, name) {
+  // ch：和了した人のキャラ { html, color, word }（稲妻と紙吹雪の中に笑顔で出す）
+  function run(tier, chips, name, ch) {
     const L = ensure();
     cancelAnimationFrame(raf);
     L.className = 'on tier' + tier;
@@ -3015,7 +3021,11 @@ window.FX = (function () {
     const ctx = cv.getContext('2d');
     const W = cv.width = innerWidth, H = cv.height = innerHeight;
     const text = L.querySelector('.fx-text');
-    text.innerHTML = `<div class="fx-sub">${name ? name + ' ' : ''}${tier === 3 ? '超' : tier === 2 ? '特大' : '大'}和了</div><div class="fx-big">祝儀 ${chips}枚</div>`;
+    text.innerHTML = `<div class="fx-sub">${name ? name + ' ' : ''}${ch && ch.word ? ch.word + '！ ' : ''}${tier === 3 ? '超' : tier === 2 ? '特大' : '大'}和了</div><div class="fx-big">祝儀 ${chips}枚</div>`;
+    const cbox = L.querySelector('.fx-char');
+    cbox.innerHTML = ch && ch.html ? ch.html : '';
+    cbox.style.display = ch && ch.html ? '' : 'none';
+    if (ch && ch.color) cbox.style.setProperty('--c', ch.color);
     document.body.classList.remove('fx-shake1', 'fx-shake2', 'fx-shake3');
     void document.body.offsetWidth;
     document.body.classList.add('fx-shake' + tier);
@@ -3067,17 +3077,23 @@ window.FX = (function () {
   }
 
   // 結果から段階を決める（和了者が受け取る祝儀の枚数で判定）
-  function forResult(result, names) {
-    if (!result || result.type !== 'agari' || !result.wins || !result.wins.length) return false;
+  // 祝儀がいちばん多い和了と、その段階（0は演出なし）
+  function tierFor(result) {
+    if (!result || result.type !== 'agari' || !result.wins || !result.wins.length) return { tier: 0 };
     let best = null;
     for (const w of result.wins) if (!best || w.chips > best.chips) best = w;
     const c = best.chips || 0;
-    const tier = c >= 100 ? 3 : c >= 50 ? 2 : c >= 30 ? 1 : 0;
+    return { tier: c >= 100 ? 3 : c >= 50 ? 2 : c >= 30 ? 1 : 0, best, chips: c };
+  }
+  function forResult(result, names, charOf) {
+    const { tier, best, chips } = tierFor(result);
     if (!tier) return false;
-    run(tier, c, names ? names[best.seat] : '');
+    const ch = charOf ? charOf(best.seat) : null;
+    if (ch) ch.word = best.tsumo ? 'ツモ' : 'ロン';
+    run(tier, chips, names ? names[best.seat] : '', ch);
     return true;
   }
-  return { run, forResult };
+  return { run, forResult, tierFor };
 })();
 
 // オリジナルのちびキャラ（SVG）。表情：normal（ふつう）・happy（和了）・riichi（気合い）・sad（振り込み）
@@ -3445,6 +3461,8 @@ function charCutins(a, b) {
   if (!a || !b || !b.players || a.gid !== b.gid) return;
   const key = (k) => `${b.gid}|${b.round && b.round.title}|${k}`;
   if (b.phase === 'result' && b.result && b.result.type === 'agari') {
+    // 大きな和了は稲妻の演出の中にキャラが出るので、ここでは出さない
+    if (window.FX && FX.tierFor && FX.tierFor(b.result).tier) return;
     const w = b.result.wins[0];
     if (w && !cutinSeen.has(key('win'))) { cutinSeen.add(key('win')); charCutin(w.seat, w.tsumo ? 'ツモ' : 'ロン'); }
     return;
@@ -3462,7 +3480,8 @@ function soundFor(a, b) {
   const cnt = (s, f) => s[f].reduce((n, x) => n + x.length, 0);
   const acts = (s) => s.actions || {};
   if (b.phase === 'result' && a.phase !== 'result') {
-    const big = window.FX && b.result && FX.forResult(b.result, b.players.map(p => p.name));
+    const big = window.FX && b.result && FX.forResult(b.result, b.players.map(p => p.name),
+      window.charSVG ? (seat) => ({ html: charSVG(seatChar(seat), 'happy'), color: charColor(seatChar(seat)) }) : null);
     if (!big) { if (b.result && b.result.type === 'agari') SFX.play('win'); else SFX.play('draw'); }
     sndSnap = null;
     return;

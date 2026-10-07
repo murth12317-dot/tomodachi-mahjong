@@ -676,3 +676,8 @@ body.landscape .center .dora { display: none; }
 .cutin .who { position: absolute; bottom: 22%; color: #fff; font-weight: 900; font-size: min(4vh, 5vw); text-shadow: 0 2px 4px #000; }
 @keyframes cutIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
 @keyframes cutOut { to { opacity: 0; transform: translateX(30px); } }
+/* 大きな和了：稲妻と紙吹雪の中に、和了した人のキャラ */
+#fx .fx-char { position: absolute; left: 50%; top: 4%; width: min(26vh, 36vw); aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #fff6e8, #ffd9a8); box-shadow: 0 0 0 5px #fff, 0 0 0 9px var(--c, #ffd65a), 0 0 40px #ffe27a; animation: fxCharIn .6s cubic-bezier(.2,1.6,.4,1) both; }
+#fx .fx-char svg { width: 100%; height: 100%; display: block; }
+@keyframes fxCharIn { from { transform: translateX(-50%) scale(.2) rotate(-20deg); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }

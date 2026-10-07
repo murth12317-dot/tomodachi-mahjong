@@ -7,7 +7,7 @@ window.FX = (function () {
     if (layer) return layer;
     layer = document.createElement('div');
     layer.id = 'fx';
-    layer.innerHTML = '<canvas></canvas><div class="fx-flash"></div><div class="fx-text"></div>';
+    layer.innerHTML = '<canvas></canvas><div class="fx-flash"></div><div class="fx-char"></div><div class="fx-text"></div>';
     document.body.append(layer);
     return layer;
   }
@@ -36,7 +36,8 @@ window.FX = (function () {
     }
   }
 
-  function run(tier, chips, name) {
+  // ch：和了した人のキャラ { html, color, word }（稲妻と紙吹雪の中に笑顔で出す）
+  function run(tier, chips, name, ch) {
     const L = ensure();
     cancelAnimationFrame(raf);
     L.className = 'on tier' + tier;
@@ -44,7 +45,11 @@ window.FX = (function () {
     const ctx = cv.getContext('2d');
     const W = cv.width = innerWidth, H = cv.height = innerHeight;
     const text = L.querySelector('.fx-text');
-    text.innerHTML = `<div class="fx-sub">${name ? name + ' ' : ''}${tier === 3 ? '超' : tier === 2 ? '特大' : '大'}和了</div><div class="fx-big">祝儀 ${chips}枚</div>`;
+    text.innerHTML = `<div class="fx-sub">${name ? name + ' ' : ''}${ch && ch.word ? ch.word + '！ ' : ''}${tier === 3 ? '超' : tier === 2 ? '特大' : '大'}和了</div><div class="fx-big">祝儀 ${chips}枚</div>`;
+    const cbox = L.querySelector('.fx-char');
+    cbox.innerHTML = ch && ch.html ? ch.html : '';
+    cbox.style.display = ch && ch.html ? '' : 'none';
+    if (ch && ch.color) cbox.style.setProperty('--c', ch.color);
     document.body.classList.remove('fx-shake1', 'fx-shake2', 'fx-shake3');
     void document.body.offsetWidth;
     document.body.classList.add('fx-shake' + tier);
@@ -96,15 +101,21 @@ window.FX = (function () {
   }
 
   // 結果から段階を決める（和了者が受け取る祝儀の枚数で判定）
-  function forResult(result, names) {
-    if (!result || result.type !== 'agari' || !result.wins || !result.wins.length) return false;
+  // 祝儀がいちばん多い和了と、その段階（0は演出なし）
+  function tierFor(result) {
+    if (!result || result.type !== 'agari' || !result.wins || !result.wins.length) return { tier: 0 };
     let best = null;
     for (const w of result.wins) if (!best || w.chips > best.chips) best = w;
     const c = best.chips || 0;
-    const tier = c >= 100 ? 3 : c >= 50 ? 2 : c >= 30 ? 1 : 0;
+    return { tier: c >= 100 ? 3 : c >= 50 ? 2 : c >= 30 ? 1 : 0, best, chips: c };
+  }
+  function forResult(result, names, charOf) {
+    const { tier, best, chips } = tierFor(result);
     if (!tier) return false;
-    run(tier, c, names ? names[best.seat] : '');
+    const ch = charOf ? charOf(best.seat) : null;
+    if (ch) ch.word = best.tsumo ? 'ツモ' : 'ロン';
+    run(tier, chips, names ? names[best.seat] : '', ch);
     return true;
   }
-  return { run, forResult };
+  return { run, forResult, tierFor };
 })();
