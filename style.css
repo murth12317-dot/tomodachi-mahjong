@@ -89,19 +89,9 @@ label.inline { flex-direction: row; align-items: center; gap: 4px; color: var(--
 .tile.chun .n { color: var(--man); }
 .tile.haku .n { width: 58%; height: 62%; border: calc(var(--w) * .06) solid #3b7bd0; border-radius: 3px; }
 .tile.c-red .n { color: var(--man) !important; }
-.tile.c-gold { background: linear-gradient(160deg, #fff6c9, #f1cf5b); }
 .tile.c-gold .n { color: #8a6200 !important; }
-.tile.c-blue { background: linear-gradient(160deg, #e6f1ff, #a9cdf7); }
 .tile.c-blue .n { color: #1845a0 !important; }
-.tile.c-rainbow { background: linear-gradient(135deg, #ffd0d0, #fff3b0, #c9f5c9, #c7e3ff, #e6ccff); }
 .tile.c-rainbow .n { color: #6a1b9a !important; }
-.tile.c-red::after, .tile.c-gold::after, .tile.c-blue::after, .tile.c-rainbow::after, .tile.pocchi::after {
-  content: ""; position: absolute; top: calc(var(--w) * .08); right: calc(var(--w) * .08);
-  width: calc(var(--w) * .18); height: calc(var(--w) * .18); border-radius: 50%; }
-.tile.c-red::after { background: var(--man); }
-.tile.c-gold::after { background: #d4a106; }
-.tile.c-blue::after { background: #2f6fd6; }
-.tile.c-rainbow::after { background: conic-gradient(red, orange, yellow, green, blue, violet, red); }
 .tile.pocchi::after { display: none; }
 .tile.back { background: linear-gradient(160deg, #f0a543, var(--back)); box-shadow: 0 calc(var(--w) * .07) 0 #f6f1e1, 0 2px 3px rgba(0,0,0,.35); }
 .tile.side { transform: rotate(90deg); margin: 0 calc(var(--w) * .18); }
@@ -230,25 +220,7 @@ table.sc td.hd { font-size: 11px; color: var(--muted); }
 .tile svg { width: 86%; height: 88%; display: block; }
 .tile.side svg { width: 86%; }
 
-/* 特殊な5をはっきり区別する：色つきの枠＋背景 */
-.tile.c-red, .tile.c-gold, .tile.c-blue {
-  box-shadow: inset 0 0 0 calc(var(--w) * .09) var(--frame), inset 0 calc(var(--w) * -.06) 0 var(--tile-edge), 0 calc(var(--w) * .07) 0 var(--tile-side), 0 2px 3px rgba(0,0,0,.35);
-}
-.tile.c-red { --frame: #d7263d; background: #ffe1e4; }
-.tile.c-gold { --frame: #c99700; background: linear-gradient(160deg, #fff4b8, #f3c93f); }
-.tile.c-blue { --frame: #1f63d8; background: linear-gradient(160deg, #e1eeff, #9fc4fb); }
-.tile.c-rainbow {
-  background: linear-gradient(180deg, #ffd3d3, #fff0b0 28%, #d2f5d2 52%, #d3e6ff 76%, #ead6ff);
-}
-/* 虹の枠は重ねて描く（枠のぶん絵柄が小さくならないように、他の特殊な5と同じ大きさ） */
-.tile.c-rainbow::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  padding: calc(var(--w) * .09);
-  background: conic-gradient(from 0deg, #e63946, #f4a261, #e9c46a, #2a9d8f, #3a86ff, #8338ec, #e63946);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-}
-.tile.c-red::after, .tile.c-gold::after, .tile.c-blue::after, .tile.c-rainbow::after { display: none; }
+/* 特殊な5は枠や背景の色を付けず、絵柄の色（赤・金・青・虹）だけで見分ける */
 
 /* 牌譜 */
 #replay { position: fixed; left: 0; right: 0; top: 0; height: var(--appH, 100%); -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: rgba(0,0,0,.7); z-index: 40; display: flex; justify-content: center; align-items: flex-start; overflow: auto; padding: 10px; }
