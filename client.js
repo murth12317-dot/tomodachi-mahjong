@@ -579,10 +579,7 @@ function flashCalls() {
     else if (S.players[s].riichi && !prevS.players[s].riichi) text = S.players[s].open ? 'オープンリーチ' : 'リーチ';
     if (text) callFlash(s, text);
   }
-  // 和了の瞬間：「ロン」「ツモ」を大きく出してから結果画面
-  if (S.phase === 'result' && S.result && S.result.type === 'agari' && prevS.phase !== 'result') {
-    S.result.wins.forEach(w => callFlash(w.seat, w.tsumo ? 'ツモ' : 'ロン'));
-  }
+  // 和了の「ロン」「ツモ」は、キャラの演出（charCutins）で出す
 }
 function callFlash(s, text) {
   const cls = { 'チー': 'cf-chi', 'ポン': 'cf-pon', 'カン': 'cf-kan', 'リーチ': 'cf-riichi', 'オープンリーチ': 'cf-riichi', 'ロン': 'cf-win', 'ツモ': 'cf-win' }[text] || '';
