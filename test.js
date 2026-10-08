@@ -388,6 +388,23 @@ console.log('シナリオテスト4 OK');
   console.log('ぽっちの5とドラ OK');
 }
 
+{ // 待ちの残り枚数：自分の手牌にある分も引く（一萬 二萬×3 三萬×2 34567筒 四索×2 ＋8筒、三萬を切ると 二萬1枚・四索2枚）
+  const { Game } = require('../game');
+  const g = new Game([0,1,2,3].map(()=>({name:'P',isBot:true})),{},()=>{});
+  const used = new Set();
+  const take = k => { for (let i = 0; i < 4; i++) { const id = k * 4 + i; if (!used.has(id)) { used.add(id); return id; } } };
+  const hand = [0, 1, 1, 1, 2, 2, 11, 12, 13, 14, 15, 21, 21, 16].map(take);
+  for (const arr of [g.live, g.dead, ...g.hands]) for (let i = arr.length - 1; i >= 0; i--) if (used.has(arr[i])) arr.splice(i, 1);
+  g.dead.splice(4, 0, ...g.live.splice(0, 1)); // 表ドラ表示牌は待ちと関係ない牌のまま
+  g.hands[0] = hand; g.drawn = hand[13]; g.turn = 0; g.phase = 'discard';
+  const vis = g.visibleCounts();
+  const w = g.discardWaits(0)[2].w;
+  assert.deepStrictEqual(w.map(x => x.k), [1, 21]);
+  assert.strictEqual(w[0].left, 4 - 3 - vis[1]); // 二萬：自分で3枚持っている
+  assert.strictEqual(w[1].left, 4 - 2 - vis[21]); // 四索：自分で2枚持っている
+  console.log('待ちの残り枚数 OK');
+}
+
 
 
 

@@ -291,8 +291,9 @@ class Game {
     for (let i = 0; i < 4; i++) if (this.openShown(i)) for (const t of this.openWaitInfo(i).shape) c[kindOf(t)]++;
     return c;
   }
-  waitsWithLeft(waits, vis, extraKind) {
-    return waits.map(k => ({ k, left: Math.max(0, 4 - vis[k] - (extraKind === k ? 1 : 0)) }));
+  // 残り枚数：4枚から、みんなに見えている牌・自分の手牌（own）・これから切る牌（extraKind）を引く
+  waitsWithLeft(waits, vis, extraKind, own = []) {
+    return waits.map(k => ({ k, left: Math.max(0, 4 - vis[k] - own.filter(x => x === k).length - (extraKind === k ? 1 : 0)) }));
   }
   // 自分の番：どの牌を切ると何待ちになるか（種類ごと）
   discardWaits(seat) {
@@ -304,7 +305,7 @@ class Game {
       const w = this.waitsOf(seat, rest);
       if (w.length) {
         // f：切ったあとフリテンになるか（自分の河に待ち牌がある・切る牌そのものが待ち牌）
-        out[k] = { w: this.waitsWithLeft(w, vis, k), f: w.some(x => x === k || this.discardKinds[seat].has(x)) };
+        out[k] = { w: this.waitsWithLeft(w, vis, k, rest), f: w.some(x => x === k || this.discardKinds[seat].has(x)) };
       }
     }
     return out;
@@ -1270,7 +1271,7 @@ class Game {
       lastDiscard: this.lastDiscard,
       actions: seat >= 0 ? this.actionsFor(seat) : null,
       waits: seat >= 0 && this.phase !== 'result' && this.hands[seat].length % 3 === 1 ? this.waitsOf(seat) : [],
-      waitsLeft: seat >= 0 && this.phase !== 'result' && this.hands[seat].length % 3 === 1 ? this.waitsWithLeft(this.waitsOf(seat), this.visibleCounts()) : [],
+      waitsLeft: seat >= 0 && this.phase !== 'result' && this.hands[seat].length % 3 === 1 ? this.waitsWithLeft(this.waitsOf(seat), this.visibleCounts(), null, this.closedKinds(seat)) : [],
       discardWaits: seat >= 0 && this.phase === 'discard' && this.turn === seat && this.hands[seat].length % 3 === 2 ? this.discardWaits(seat) : null,
       furiten: seat >= 0 && this.hands[seat].length % 3 === 1 ? this.isFuriten(seat) : false,
       claimTile: this.phase === 'claim' && this.claim ? this.claim.tile : null,
