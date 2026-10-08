@@ -834,5 +834,43 @@
     "cpu": true
    }
   ]
+ },
+ {
+  "id": "4305-1791425201831",
+  "at": "2026-10-08T02:08:53.712Z",
+  "room": "4305",
+  "rate": 100,
+  "fee": 1,
+  "feeTo": "あつや",
+  "players": [
+   {
+    "name": "CPU3",
+    "rank": 1,
+    "score": 44500,
+    "chips": 45,
+    "cpu": true
+   },
+   {
+    "name": "CPU1",
+    "rank": 3,
+    "score": 22500,
+    "chips": -11,
+    "cpu": true
+   },
+   {
+    "name": "なかむら",
+    "rank": 2,
+    "score": 35500,
+    "chips": 25,
+    "cpu": false
+   },
+   {
+    "name": "CPU2",
+    "rank": 4,
+    "score": -2500,
+    "chips": -59,
+    "cpu": true
+   }
+  ]
  }
 ]
