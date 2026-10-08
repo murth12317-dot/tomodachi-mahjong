@@ -681,3 +681,18 @@ body.landscape .center .dora { display: none; }
   background: radial-gradient(circle at 50% 40%, #fff6e8, #ffd9a8); box-shadow: 0 0 0 5px #fff, 0 0 0 9px var(--c, #ffd65a), 0 0 40px #ffe27a; animation: fxCharIn .6s cubic-bezier(.2,1.6,.4,1) both; }
 #fx .fx-char svg { width: 100%; height: 100%; display: block; }
 @keyframes fxCharIn { from { transform: translateX(-50%) scale(.2) rotate(-20deg); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+/* キャラ選び：ロビーは選んだキャラだけ、一覧はタブで切り替え */
+.curChar { display: flex; align-items: center; gap: 10px; }
+.curChar .ci { width: 48px; height: 48px; }
+.curChar .cn { flex: 1; font-weight: 800; color: var(--text); }
+#charSheet { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.csPanel { width: min(560px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 8px; background: linear-gradient(180deg, #143a2d, #0b261d); border: 2px solid rgba(255,210,90,.55); border-radius: 16px; padding: 12px; }
+.csTop { display: flex; align-items: center; justify-content: space-between; color: var(--accent); font-size: 16px; }
+.csTabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.csTabs button { background: rgba(255,255,255,.1); box-shadow: none; }
+.csTabs button.on { background: var(--accent); color: #3a2a00; }
+.csGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px 6px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 4px; }
+.csCell { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.csCell .ci { width: 60px; height: 60px; }
+.csName { font-size: 11px; color: var(--text); text-align: center; line-height: 1.2; }
+.csCell .ci { opacity: 1; }

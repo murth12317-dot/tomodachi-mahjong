@@ -22,7 +22,7 @@ window.SOLO = (function () {
     clearTimeout(botTimer); clearTimeout(autoTimer);
     const order = shuffle([0, 1, 2, 3]);
     // キャラ：自分はロビーで選んだもの、CPUは残りから
-    const CH = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+    const CH = (window.CHARACTERS || []).map(c => c.id);
     let mine = null; try { mine = localStorage.getItem('mj_char'); } catch (e) { /* noop */ }
     if (!CH.includes(mine)) mine = CH[2];
     const rest = shuffle(CH.filter(c => c !== mine));

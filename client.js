@@ -87,7 +87,7 @@ function onState(data) {
   renderTable();
 }
 // ================= キャラ =================
-const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+const CHAR_IDS = (window.CHARACTERS || []).map(c => c.id);
 function myChar() {
   const c = ls.get('mj_char'); if (CHAR_IDS.includes(c)) return c;
   const r = CHAR_IDS[Math.floor(Math.random() * CHAR_IDS.length)]; ls.set('mj_char', r); return r;
@@ -102,12 +102,39 @@ const seatChar = (seat) => (ROOM && ROOM.seats && ROOM.seats[seat] && ROOM.seats
 // ロビー：キャラを並べて飾る＋選ぶ
 (function lobbyChars() {
   if (!window.CHARACTERS) return;
+  // 飾り：開くたびにちがう7人
   const hero = $('#lobbyHero'); hero.className = 'lobbyHero';
-  CHARACTERS.forEach(c => hero.append(avatarEl(c.id)));
-  const g = $('#charPick .cpick');
-  const draw = () => { g.innerHTML = ''; const mine = myChar(); CHARACTERS.forEach(c => { const i = avatarEl(c.id, 'normal', 'ci' + (c.id === mine ? ' on' : '')); i.title = c.name; i.onclick = () => { ls.set('mj_char', c.id); draw(); }; g.append(i); }); };
-  draw();
+  const pool = CHARACTERS.slice();
+  for (let i = 0; i < 7 && pool.length; i++) hero.append(avatarEl(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id));
+  // 選んでいるキャラ＋「キャラを選ぶ」ボタン（押すと一覧が開く）
+  const box = $('#charPick'); box.innerHTML = '';
+  const cur = h('div', 'curChar'); box.append(cur);
+  const drawCur = () => { cur.innerHTML = ''; const id = myChar(), c = CHARACTERS.find(x => x.id === id); cur.append(avatarEl(id, 'normal', 'ci on'), h('span', 'cn', c ? c.name : '')); const b = h('button', 'small', 'キャラを選ぶ'); b.onclick = (e) => { e.preventDefault(); openCharSheet(drawCur); }; cur.append(b); };
+  drawCur();
 })();
+// キャラの一覧（タブで種類を切り替え）
+function openCharSheet(after) {
+  const ov = h('div', ''); ov.id = 'charSheet';
+  const panel = h('div', 'csPanel'); ov.append(panel);
+  const top = h('div', 'csTop'); top.append(h('b', '', 'キャラを選ぶ'));
+  const close = h('button', 'small ghost', '閉じる'); close.onclick = () => ov.remove(); top.append(close); panel.append(top);
+  const tabs = h('div', 'csTabs'); panel.append(tabs);
+  const grid = h('div', 'csGrid'); panel.append(grid);
+  const mine = myChar(); const cats = window.CHAR_CATS || [['O', 'キャラ']];
+  let cat = (CHARACTERS.find(c => c.id === mine) || {}).cat || cats[0][0];
+  const draw = () => {
+    tabs.innerHTML = ''; grid.innerHTML = '';
+    cats.forEach(([k, label]) => { const t = h('button', 'small' + (k === cat ? ' on' : ''), label); t.onclick = () => { cat = k; draw(); }; tabs.append(t); });
+    CHARACTERS.filter(c => (c.cat || cats[0][0]) === cat).forEach(c => {
+      const cell = h('div', 'csCell'); cell.append(avatarEl(c.id, 'normal', 'ci' + (c.id === mine ? ' on' : '')), h('div', 'csName', c.name));
+      cell.onclick = () => { ls.set('mj_char', c.id); ov.remove(); if (after) after(); };
+      grid.append(cell);
+    });
+  };
+  draw();
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  document.body.append(ov);
+}
 // 対局中：4人のキャラを盤のまわりに。表情は リーチ・和了・振り込み で変わる
 function charExpr(seat) {
   const R = S.result;
@@ -620,7 +647,7 @@ if (window.SOLO) {
   // 一人打ち：ロビーがないので、設定からキャラを選ぶ
   if (window.CHARACTERS) {
     const lb = h('label', '', 'キャラ '); const sel = h('select');
-    CHARACTERS.forEach(c => { const o = h('option', '', c.name); o.value = c.id; sel.append(o); });
+    (window.CHAR_CATS || [['O', 'キャラ']]).forEach(([k, label]) => { const og = document.createElement('optgroup'); og.label = label; CHARACTERS.filter(c => (c.cat || 'O') === k).forEach(c => { const o = h('option', '', c.name); o.value = c.id; og.append(o); }); sel.append(og); });
     sel.value = myChar(); sel.onchange = () => { ls.set('mj_char', sel.value); window.SOLO.setChar(sel.value); };
     lb.append(sel); $('#opts').append(lb);
   }

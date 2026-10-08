@@ -186,7 +186,8 @@ function startGame(room) {
 
 const cleanName = n => String(n || '').trim().slice(0, 12);
 // キャラ（chars.js と同じ並び）。選んでいなければ空いているキャラ
-const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya'];
+const CHAR_IDS = ['rin', 'kohaku', 'shizuku', 'nanami', 'pochi', 'daiya',
+  ...[['a', 20], ['b', 15], ['c', 15]].flatMap(([k, n]) => Array.from({ length: n }, (_, i) => k + String(i + 1).padStart(2, '0')))];
 const cleanChar = c => (CHAR_IDS.includes(c) ? c : null);
 const freeChar = (room) => { const used = new Set(room.seats.filter(Boolean).map(s => s.char)); const free = CHAR_IDS.filter(c => !used.has(c)); return free[crypto.randomInt(free.length || 1)] || CHAR_IDS[crypto.randomInt(CHAR_IDS.length)]; };
 
