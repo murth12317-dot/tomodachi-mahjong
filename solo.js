@@ -72,7 +72,7 @@ window.SOLO = (function () {
       if (!game.act(you, data.action)) { handlers.state(game.viewFor(you)); return { error: 'その操作はできません' }; }
       return { ok: true };
     }
-    if (cmd === 'rematch' || cmd === 'leave') { newGame(); return { ok: true }; }
+    if (cmd === 'rematch' || cmd === 'leave' || cmd === 'abort') { newGame(); return { ok: true }; }
     if (cmd === 'replay') { const e = history.find(x => x.no === +data.no); return e ? { ok: true, replay: e.replay } : { error: '牌譜がありません' }; }
     return { ok: true };
   }

@@ -291,6 +291,17 @@ function handle(token, msg) {
       if (notReady.length) return { error: `準備OKを待っています（${notReady.map(s => s.name).join('・')}）` };
       startGame(room); return { ok: true };
     }
+    // CPUが入っている対局は、途中でやめて部屋に戻れる（成績表・部屋の成績には残さない）
+    case 'abort': {
+      if (!room || !room.game || room.game.gameOver) return { error: '対局中ではありません' };
+      if (seatIndex() < 0) return { error: '席がありません' };
+      if (!room.seats.some(s => s && s.isBot)) return { error: 'CPUがいる対局だけ途中でやめられます' };
+      clearTimeout(room.botTimer); clearTimeout(room.autoTimer); clearTimeout(room.graceTimer);
+      room.game = null;
+      room.seats = room.seats.map(s => (s && s.left ? null : s));
+      room.seats.forEach(s => { if (s) s.ready = false; });
+      broadcast(room); return { ok: true };
+    }
     case 'rematch': {
       // 終局後は誰でも部屋に戻せる（ホストを待たなくていい）
       if (!room.game || !room.game.gameOver || seatIndex() < 0) return { error: 'できません' };

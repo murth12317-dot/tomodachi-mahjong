@@ -64,6 +64,8 @@ function show(id) {
 
 // ================= 接続 =================
 function onRoom(data) {
+  // 終局前に部屋に戻った＝誰かが対局をやめた
+  if (ROOM && ROOM.started && !data.started && S && !S.gameOver) toast('対局が途中で終わりました（成績には残りません）');
   ROOM = data;
   if (!ROOM.started) { S = null; prevS = null; $('#noCall').checked = false; $('#modal').classList.add('hidden'); renderRoom(); show('#room'); }
   else show('#table');
@@ -382,6 +384,7 @@ function renderWait() {
 }
 
 function renderTable() {
+  updateAbort();
   renderWait();
   setTimeout(landHint, 0);
   renderBoard();
@@ -1115,7 +1118,23 @@ window.addEventListener('orientationchange', () => setTimeout(() => { setAppHeig
   btn.onclick = (e) => { e.stopPropagation(); opts.classList.toggle('open'); };
   document.getElementById('table').append(btn);
   document.addEventListener('click', (e) => { if (!opts.contains(e.target) && e.target !== btn) opts.classList.remove('open'); });
+  // CPUと打っているときは途中でやめられる（成績には残さない）
+  const ab = h('button', 'small', '対局をやめる'); ab.id = 'btnAbort';
+  ab.onclick = async () => {
+    const humans = ROOM && ROOM.seats ? ROOM.seats.filter(s => s && !s.isBot).length : 1;
+    const msg = window.SOLO ? '対局をやめて、新しく始めますか？' : humans > 1 ? '対局をやめて部屋に戻りますか？\n全員が部屋に戻ります。成績には残りません。' : '対局をやめて部屋に戻りますか？\n成績には残りません。';
+    if (!confirm(msg)) return;
+    opts.classList.remove('open');
+    await api('abort');
+  };
+  opts.append(ab);
 })();
+// 「対局をやめる」はCPUがいて、終局前のときだけ出す
+function updateAbort() {
+  const ab = $('#btnAbort'); if (!ab) return;
+  const hasBot = !!(window.SOLO || (ROOM && ROOM.seats && ROOM.seats.some(s => s && s.isBot)));
+  ab.classList.toggle('hidden', !(hasBot && S && !S.gameOver && ROOM && ROOM.you >= 0));
+}
 
 // 縦向きのとき、一度だけ「横向きがおすすめ」の案内を出す
 function landHint() {
