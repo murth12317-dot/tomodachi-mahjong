@@ -39,7 +39,7 @@ const finalShown = new Set();
 const params = new URLSearchParams(location.search);
 $('#name').value = ls.get('mj_name') || '';
 if (params.get('room')) $('#code').value = params.get('room');
-if (window.SOLO) document.querySelectorAll('.statlink').forEach(a => a.classList.add('hidden'));
+if (window.SOLO) document.querySelectorAll('.statlinks').forEach(a => a.classList.add('hidden'));
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -145,6 +145,8 @@ function charExpr(seat) {
   }
   return S.players[seat].riichi ? 'riichi' : 'normal';
 }
+// 縦長の画面で、相手3人のキャラを並べる上の帯の高さ
+function portraitStripH() { return innerWidth >= 600 ? 64 : 54; }
 function renderChars() {
   let box = $('#charRing');
   if (!box) { box = h('div', ''); box.id = 'charRing'; $('#table').append(box); }
@@ -155,8 +157,13 @@ function renderChars() {
   // 横向き：左右に2人ずつ縦に並ぶので、ドラ表示・設定ボタンの下から手牌の上までに2人分が収まる大きさにする
   const db = $('#doraBox'), topY = Math.max(64, db && db.getClientRects().length ? db.getBoundingClientRect().bottom + 8 : 0);
   const NAME_H = 24; // 名前と点数の札の高さ
-  const fitH = (hand.top - 10 - topY - 6) / 2 - NAME_H;
-  const sz = land ? Math.max(28, Math.min(72, board.left - 60, fitH)) : 56;
+  // 横向きで左右の列ごとに、下の端（操作ボタン・待ちの表示が出ていればその上）を決めて、2人分が入る大きさにする
+  const obs = land ? ['#actions button', '#status'].flatMap(q => [...document.querySelectorAll(q)])
+    .filter(e => e.getClientRects().length && e.textContent.trim()).map(e => e.getBoundingClientRect()) : [];
+  const colLim = (x0, x1) => Math.min(hand.top - 10, ...obs.filter(o => o.left < x1 && x0 < o.right).map(o => o.top - 6));
+  const lim = { L: colLim(0, board.left), R: colLim(board.right, W) };
+  const colSz = (k) => Math.min(72, board.left - 60, (lim[k] - topY - 6) / 2 - NAME_H);
+  const sz = land ? Math.max(22, Math.min(colSz('L'), colSz('R'), Math.max(28, Math.min(72, board.left - 60, (hand.top - 10 - topY - 6) / 2 - NAME_H)))) : 56;
   for (let seat = 0; seat < 4; seat++) {
     const r = rel(seat), id = seatChar(seat), p = S.players[seat];
     const el = h('div', 'ring'); el.style.setProperty('--c', charColor(id)); el.style.setProperty('--sz', sz + 'px');
@@ -166,15 +173,34 @@ function renderChars() {
     const b = el.getBoundingClientRect();
     let x, y;
     if (land) {
+      const k = r === 0 || r === 3 ? 'L' : 'R';
       const lx = Math.max(8, (board.left - b.width) / 2), rx = W - Math.max(8, (W - board.right - b.width) / 2) - b.width;
-      x = r === 0 || r === 3 ? lx : rx;
-      y = r === 0 || r === 1 ? hand.top - b.height - 10 : topY;
+      x = k === 'L' ? lx : rx;
+      y = r === 0 || r === 1 ? lim[k] - b.height : topY;
+      // それでも上の人と重なるほど狭いときは、ボタン・待ちが出ている間だけ下の人を隠す
+      if ((r === 0 || r === 1) && y < topY + b.height + 2) el.style.visibility = 'hidden';
+    } else if (r === 0) {
+      // 縦向き：自分は手牌の左上
+      x = 8; y = hand.top - b.height - 6;
     } else {
-      // 縦向き：自分は手牌の左上、ほかの3人は盤の上に左・真ん中・右
-      if (r === 0) { x = 8; y = hand.top - b.height - 6; }
-      else { x = r === 3 ? 8 : r === 2 ? (W - b.width) / 2 : W - b.width - 8; y = Math.max(4, board.top - b.height + 6); }
+      // ほかの3人は上の帯に左・真ん中・右（顔の横に名前と点数。右は設定ボタンをよける）
+      // 広い画面（タブレット）は顔の横に名前、スマホは顔の下に小さく
+      if (W >= 600) { el.classList.add('row'); el.style.setProperty('--sz', (portraitStripH() - 8) + 'px'); }
+      else { el.classList.add('mini'); el.style.setProperty('--sz', '32px'); }
+      const bw = el.getBoundingClientRect().width, ob = $('#optsBtn').getBoundingClientRect();
+      const right = (ob.width ? ob.left : W) - 8;
+      x = r === 3 ? 8 : r === 1 ? right - bw : (W - bw) / 2;
+      y = 4;
     }
     el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+  // 縦向きの上の帯：真ん中（対面）が左右とぶつかるときは間に詰める
+  if (!land) {
+    const [, r1, r2, r3] = [0, 1, 2, 3].map(r => box.children[[0, 1, 2, 3].findIndex(s => rel(s) === r)]);
+    if (r1 && r2 && r3) {
+      const a = r3.getBoundingClientRect(), c = r1.getBoundingClientRect(), m = r2.getBoundingClientRect();
+      if (m.left < a.right + 4 || m.right > c.left - 4) r2.style.left = Math.max(a.right + 4, (a.right + c.left - m.width) / 2) + 'px';
+    }
   }
 }
 // リーチ・ツモ・ロンのときに、その人のキャラが大きく出る（同じ演出は一度だけ）
@@ -1079,10 +1105,12 @@ function fitLayout() {
     }
   } else {
     const availH = H - meH - 4;
-    const scale = Math.max(0.3, Math.min(W / 600, availH / 600));
-    b.style.transformOrigin = '';
-    b.style.top = '';
-    b.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    // 縦長の画面では、上に相手3人のキャラの帯を空けて、盤はその下（対面の手牌にキャラがかからないように）
+    const T = W < H0 ? portraitStripH() : 0;
+    const scale = Math.max(0.3, Math.min(W / 600, (availH - T) / 600));
+    b.style.transformOrigin = 'top center';
+    b.style.top = `${T + Math.max(0, (availH - T - 600 * scale) / 2)}px`;
+    b.style.transform = `translate(-50%, 0) scale(${scale})`;
     $('#boardWrap').style.flex = `0 0 ${availH}px`;
   }
   try { renderChars(); } catch (e) { /* キャラの表示の失敗は無視 */ }

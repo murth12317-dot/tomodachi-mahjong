@@ -41,6 +41,9 @@ input[type=text], input:not([type]), input[inputmode] {
 
 /* ---- ロビー・待合室 ---- */
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+/* 縦長の小さい画面で中身が画面より高いとき、上が切れずにスクロールできるように */
+#lobby, #room { overflow-y: auto; -webkit-overflow-scrolling: touch; align-items: flex-start; }
+#lobby > .card, #room > .card { margin: auto 0; }
 .card {
   width: min(420px, 100%); background: rgba(0, 0, 0, .28); border: 1px solid rgba(255, 255, 255, .08);
   border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 12px;
@@ -165,7 +168,7 @@ label.inline { flex-direction: row; align-items: center; gap: 4px; color: var(--
 #opts select { font-size: 12px; padding: 1px 2px; width: auto; background: rgba(0,0,0,.35); color: inherit; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; }
 
 /* ---- モーダル ---- */
-#modal { position: fixed; left: 0; right: 0; top: 0; height: var(--appH, 100%); background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 12px; }
+#modal { position: fixed; left: 0; right: 0; top: 0; height: var(--appH, 100%); background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 25; padding: 12px; } /* 設定ボタン（21）より上 */
 #modalBody {
   width: min(560px, 100%); max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; user-select: text; background: #102f25; border: 1px solid #2e7059;
   border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;
@@ -339,6 +342,7 @@ button.primary { background: linear-gradient(180deg, #ffe38a, #f2b51f); color: #
 button.primary:active { box-shadow: 0 1px 0 #a8740b; }
 button.ghost { background: transparent; box-shadow: none; }
 button.small { box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+button.small.ghost { box-shadow: none; } /* 文字だけのボタンに影の帯を出さない */
 /* 対局中のボタン：種類ごとに色分けした大きなボタン */
 #actions button { border-radius: 16px; font-weight: 900; font-size: 18px; min-width: 84px; padding: 10px 18px; color: #fff; letter-spacing: .05em;
   text-shadow: 0 2px 0 rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.55); }
@@ -375,7 +379,7 @@ h1 { font-size: 40px; font-weight: 900; letter-spacing: .15em; background: linea
 #modalBody .row.sticky { background: linear-gradient(180deg, rgba(11,38,29,0), #0b261d 30%); padding: 10px 0 12px; }
 #modalBody button.sticky { box-shadow: 0 4px 0 #a8740b, 0 -12px 18px #0b261d; }
 /* 設定は歯車ボタンで開く */
-#opts { display: none; background: rgba(0,0,0,.82); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); z-index: 20; font-size: 14px; gap: 8px; top: 44px; right: 8px; bottom: auto; }
+#opts { display: none; background: rgba(8,18,14,.95); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); z-index: 20; font-size: 14px; gap: 8px; top: 44px; right: 8px; bottom: auto; }
 #opts.open { display: flex; }
 #opts label { color: #eee; }
 #optsBtn { position: absolute; top: calc(6px + env(safe-area-inset-top)); right: 8px; z-index: 21; padding: 5px 12px; font-size: 13px; background: linear-gradient(180deg, #3b4a44, #25302b); }
@@ -596,13 +600,13 @@ body.wide #lobby .card > h1 { grid-column: 1; grid-row: 1 / span 3; font-size: 4
 body.wide #lobby .card > .sub:first-of-type { grid-column: 1; grid-row: 4; align-self: start; }
 body.wide #lobby .card > *:not(h1):not(.sub:first-of-type) { grid-column: 2; }
 body.wide #lobby .divider { margin-top: 0; }
-/* 待合室：左に部屋番号・席・ボタン、右に部屋の成績 */
+/* 待合室：左に部屋番号・席、右に部屋の成績・倍率・ボタン（左の列だけが縦に長くなって全体が縮むのを防ぐ） */
 body.wide #room { padding: 8px; }
 body.wide #room .card { width: min(820px, 100%); display: grid; grid-template-columns: 300px 1fr; column-gap: 20px; row-gap: 4px; padding: 10px 16px; align-content: start; grid-auto-rows: min-content; }
-body.wide #room .card > * { grid-column: 1; }
-body.wide #room .card > .sub:first-child { display: none; }
+#room .rcol { display: contents; } /* 縦向きでは今までどおり1列 */
+body.wide #room .rcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+body.wide #room .rcolL > .sub:first-child { display: none; }
 body.wide #room #roomRule { font-size: 11px; }
-body.wide #room #roomHistory { grid-column: 2; grid-row: 1 / span 12; align-self: start; }
 body.wide #room .code { font-size: 28px; }
 body.wide #seats { gap: 4px; }
 body.wide #seats li { padding: 4px 10px; }
@@ -645,7 +649,8 @@ body.landscape #doraBox .tile { --w: var(--dw, 28px); }
 body.landscape .center .dora { display: none; }
 
 /* 成績表へのリンク・倍率（GOTOと同じ） */
-.statlink { display: block; text-align: center; margin: 4px 0 0; color: var(--accent); font-weight: 700; font-size: 14px; }
+.statlinks { display: flex; justify-content: center; gap: 28px; }
+.statlink { display: block; text-align: center; margin: 0; padding: 6px 4px; color: var(--accent); font-weight: 700; font-size: 14px; }
 .raterow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
 .raterow b { color: var(--accent); }
 .raterow input { width: 90px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: var(--text); font: inherit; font-size: 16px; }
@@ -696,3 +701,11 @@ body.landscape .center .dora { display: none; }
 .csCell .ci { width: 60px; height: 60px; }
 .csName { font-size: 11px; color: var(--text); text-align: center; line-height: 1.2; }
 .csCell .ci { opacity: 1; }
+/* 縦向きの上の帯：顔の横に名前と点数（2行） */
+.ring.row { flex-direction: row; gap: 5px; }
+.ring.row .nm { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; padding: 2px 8px; border-radius: 8px; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+.ring.row .nm b { margin-left: 0; }
+.ring .nm { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; }
+.ring.mini { gap: 1px; }
+.ring.mini .nm { font-size: 11px; padding: 0 6px; max-width: 30vw; }
+.ring.mini .nm b { margin-left: 3px; }

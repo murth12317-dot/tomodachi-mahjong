@@ -31,19 +31,21 @@
       <button id="btnJoin">参加</button>
     </div>
     <p id="lobbyMsg" class="msg"></p>
-    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
-    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
+    <div class="statlinks"><a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a><a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a></div>
   </div>
 </section>
 
 <!-- 待合室 -->
 <section id="room" class="screen hidden">
   <div class="card">
+    <div class="rcol rcolL">
     <p class="sub">部屋番号</p>
     <div id="roomCode" class="code"></div>
     <button id="btnCopy" class="small">招待リンクをコピー</button>
     <p id="roomRule" class="sub"></p>
     <ul id="seats"></ul>
+    </div>
+    <div class="rcol rcolR">
     <div id="roomHistory"></div>
     <div id="rateRow" class="raterow"></div>
     <div id="hostCtl" class="hidden">
@@ -55,9 +57,9 @@
     <button id="btnReady" class="primary hidden">準備OK</button>
     <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
     <button id="btnLeave" class="small ghost">退出</button>
-    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
-    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
+    <div class="statlinks"><a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a><a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a></div>
     <p id="roomMsg" class="msg"></p>
+    </div>
   </div>
 </section>
 

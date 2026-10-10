@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>友達麻雀 一人打ち</title>
 <meta name="theme-color" content="#0f3d2e">
 <style>
@@ -44,6 +46,9 @@ input[type=text], input:not([type]), input[inputmode] {
 
 /* ---- ロビー・待合室 ---- */
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+/* 縦長の小さい画面で中身が画面より高いとき、上が切れずにスクロールできるように */
+#lobby, #room { overflow-y: auto; -webkit-overflow-scrolling: touch; align-items: flex-start; }
+#lobby > .card, #room > .card { margin: auto 0; }
 .card {
   width: min(420px, 100%); background: rgba(0, 0, 0, .28); border: 1px solid rgba(255, 255, 255, .08);
   border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 12px;
@@ -168,7 +173,7 @@ label.inline { flex-direction: row; align-items: center; gap: 4px; color: var(--
 #opts select { font-size: 12px; padding: 1px 2px; width: auto; background: rgba(0,0,0,.35); color: inherit; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; }
 
 /* ---- モーダル ---- */
-#modal { position: fixed; left: 0; right: 0; top: 0; height: var(--appH, 100%); background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 12px; }
+#modal { position: fixed; left: 0; right: 0; top: 0; height: var(--appH, 100%); background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 25; padding: 12px; } /* 設定ボタン（21）より上 */
 #modalBody {
   width: min(560px, 100%); max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; user-select: text; background: #102f25; border: 1px solid #2e7059;
   border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;
@@ -342,6 +347,7 @@ button.primary { background: linear-gradient(180deg, #ffe38a, #f2b51f); color: #
 button.primary:active { box-shadow: 0 1px 0 #a8740b; }
 button.ghost { background: transparent; box-shadow: none; }
 button.small { box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+button.small.ghost { box-shadow: none; } /* 文字だけのボタンに影の帯を出さない */
 /* 対局中のボタン：種類ごとに色分けした大きなボタン */
 #actions button { border-radius: 16px; font-weight: 900; font-size: 18px; min-width: 84px; padding: 10px 18px; color: #fff; letter-spacing: .05em;
   text-shadow: 0 2px 0 rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.55); }
@@ -378,7 +384,7 @@ h1 { font-size: 40px; font-weight: 900; letter-spacing: .15em; background: linea
 #modalBody .row.sticky { background: linear-gradient(180deg, rgba(11,38,29,0), #0b261d 30%); padding: 10px 0 12px; }
 #modalBody button.sticky { box-shadow: 0 4px 0 #a8740b, 0 -12px 18px #0b261d; }
 /* 設定は歯車ボタンで開く */
-#opts { display: none; background: rgba(0,0,0,.82); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); z-index: 20; font-size: 14px; gap: 8px; top: 44px; right: 8px; bottom: auto; }
+#opts { display: none; background: rgba(8,18,14,.95); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); z-index: 20; font-size: 14px; gap: 8px; top: 44px; right: 8px; bottom: auto; }
 #opts.open { display: flex; }
 #opts label { color: #eee; }
 #optsBtn { position: absolute; top: calc(6px + env(safe-area-inset-top)); right: 8px; z-index: 21; padding: 5px 12px; font-size: 13px; background: linear-gradient(180deg, #3b4a44, #25302b); }
@@ -599,13 +605,13 @@ body.wide #lobby .card > h1 { grid-column: 1; grid-row: 1 / span 3; font-size: 4
 body.wide #lobby .card > .sub:first-of-type { grid-column: 1; grid-row: 4; align-self: start; }
 body.wide #lobby .card > *:not(h1):not(.sub:first-of-type) { grid-column: 2; }
 body.wide #lobby .divider { margin-top: 0; }
-/* 待合室：左に部屋番号・席・ボタン、右に部屋の成績 */
+/* 待合室：左に部屋番号・席、右に部屋の成績・倍率・ボタン（左の列だけが縦に長くなって全体が縮むのを防ぐ） */
 body.wide #room { padding: 8px; }
 body.wide #room .card { width: min(820px, 100%); display: grid; grid-template-columns: 300px 1fr; column-gap: 20px; row-gap: 4px; padding: 10px 16px; align-content: start; grid-auto-rows: min-content; }
-body.wide #room .card > * { grid-column: 1; }
-body.wide #room .card > .sub:first-child { display: none; }
+#room .rcol { display: contents; } /* 縦向きでは今までどおり1列 */
+body.wide #room .rcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+body.wide #room .rcolL > .sub:first-child { display: none; }
 body.wide #room #roomRule { font-size: 11px; }
-body.wide #room #roomHistory { grid-column: 2; grid-row: 1 / span 12; align-self: start; }
 body.wide #room .code { font-size: 28px; }
 body.wide #seats { gap: 4px; }
 body.wide #seats li { padding: 4px 10px; }
@@ -648,7 +654,8 @@ body.landscape #doraBox .tile { --w: var(--dw, 28px); }
 body.landscape .center .dora { display: none; }
 
 /* 成績表へのリンク・倍率（GOTOと同じ） */
-.statlink { display: block; text-align: center; margin: 4px 0 0; color: var(--accent); font-weight: 700; font-size: 14px; }
+.statlinks { display: flex; justify-content: center; gap: 28px; }
+.statlink { display: block; text-align: center; margin: 0; padding: 6px 4px; color: var(--accent); font-weight: 700; font-size: 14px; }
 .raterow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
 .raterow b { color: var(--accent); }
 .raterow input { width: 90px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: var(--text); font: inherit; font-size: 16px; }
@@ -699,6 +706,14 @@ body.landscape .center .dora { display: none; }
 .csCell .ci { width: 60px; height: 60px; }
 .csName { font-size: 11px; color: var(--text); text-align: center; line-height: 1.2; }
 .csCell .ci { opacity: 1; }
+/* 縦向きの上の帯：顔の横に名前と点数（2行） */
+.ring.row { flex-direction: row; gap: 5px; }
+.ring.row .nm { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; padding: 2px 8px; border-radius: 8px; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+.ring.row .nm b { margin-left: 0; }
+.ring .nm { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; }
+.ring.mini { gap: 1px; }
+.ring.mini .nm { font-size: 11px; padding: 0 6px; max-width: 30vw; }
+.ring.mini .nm b { margin-left: 3px; }
 
 :root { color-scheme: dark; }
 html, body { height: 100%; }
@@ -723,19 +738,21 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
       <button id="btnJoin">参加</button>
     </div>
     <p id="lobbyMsg" class="msg"></p>
-    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
-    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
+    <div class="statlinks"><a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a><a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a></div>
   </div>
 </section>
 
 <!-- 待合室 -->
 <section id="room" class="screen hidden">
   <div class="card">
+    <div class="rcol rcolL">
     <p class="sub">部屋番号</p>
     <div id="roomCode" class="code"></div>
     <button id="btnCopy" class="small">招待リンクをコピー</button>
     <p id="roomRule" class="sub"></p>
     <ul id="seats"></ul>
+    </div>
+    <div class="rcol rcolR">
     <div id="roomHistory"></div>
     <div id="rateRow" class="raterow"></div>
     <div id="hostCtl" class="hidden">
@@ -747,9 +764,9 @@ body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt
     <button id="btnReady" class="primary hidden">準備OK</button>
     <p id="guestWait" class="sub hidden">ホストの開始を待っています…</p>
     <button id="btnLeave" class="small ghost">退出</button>
-    <a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a>
-    <a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a>
+    <div class="statlinks"><a class="statlink" href="/stats" target="_blank" rel="noopener">成績表を見る</a><a class="statlink" href="/rules" target="_blank" rel="noopener">ルールを見る</a></div>
     <p id="roomMsg" class="msg"></p>
+    </div>
   </div>
 </section>
 
@@ -3612,7 +3629,7 @@ const finalShown = new Set();
 const params = new URLSearchParams(location.search);
 $('#name').value = ls.get('mj_name') || '';
 if (params.get('room')) $('#code').value = params.get('room');
-if (window.SOLO) document.querySelectorAll('.statlink').forEach(a => a.classList.add('hidden'));
+if (window.SOLO) document.querySelectorAll('.statlinks').forEach(a => a.classList.add('hidden'));
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -3718,6 +3735,8 @@ function charExpr(seat) {
   }
   return S.players[seat].riichi ? 'riichi' : 'normal';
 }
+// 縦長の画面で、相手3人のキャラを並べる上の帯の高さ
+function portraitStripH() { return innerWidth >= 600 ? 64 : 54; }
 function renderChars() {
   let box = $('#charRing');
   if (!box) { box = h('div', ''); box.id = 'charRing'; $('#table').append(box); }
@@ -3728,8 +3747,13 @@ function renderChars() {
   // 横向き：左右に2人ずつ縦に並ぶので、ドラ表示・設定ボタンの下から手牌の上までに2人分が収まる大きさにする
   const db = $('#doraBox'), topY = Math.max(64, db && db.getClientRects().length ? db.getBoundingClientRect().bottom + 8 : 0);
   const NAME_H = 24; // 名前と点数の札の高さ
-  const fitH = (hand.top - 10 - topY - 6) / 2 - NAME_H;
-  const sz = land ? Math.max(28, Math.min(72, board.left - 60, fitH)) : 56;
+  // 横向きで左右の列ごとに、下の端（操作ボタン・待ちの表示が出ていればその上）を決めて、2人分が入る大きさにする
+  const obs = land ? ['#actions button', '#status'].flatMap(q => [...document.querySelectorAll(q)])
+    .filter(e => e.getClientRects().length && e.textContent.trim()).map(e => e.getBoundingClientRect()) : [];
+  const colLim = (x0, x1) => Math.min(hand.top - 10, ...obs.filter(o => o.left < x1 && x0 < o.right).map(o => o.top - 6));
+  const lim = { L: colLim(0, board.left), R: colLim(board.right, W) };
+  const colSz = (k) => Math.min(72, board.left - 60, (lim[k] - topY - 6) / 2 - NAME_H);
+  const sz = land ? Math.max(22, Math.min(colSz('L'), colSz('R'), Math.max(28, Math.min(72, board.left - 60, (hand.top - 10 - topY - 6) / 2 - NAME_H)))) : 56;
   for (let seat = 0; seat < 4; seat++) {
     const r = rel(seat), id = seatChar(seat), p = S.players[seat];
     const el = h('div', 'ring'); el.style.setProperty('--c', charColor(id)); el.style.setProperty('--sz', sz + 'px');
@@ -3739,15 +3763,34 @@ function renderChars() {
     const b = el.getBoundingClientRect();
     let x, y;
     if (land) {
+      const k = r === 0 || r === 3 ? 'L' : 'R';
       const lx = Math.max(8, (board.left - b.width) / 2), rx = W - Math.max(8, (W - board.right - b.width) / 2) - b.width;
-      x = r === 0 || r === 3 ? lx : rx;
-      y = r === 0 || r === 1 ? hand.top - b.height - 10 : topY;
+      x = k === 'L' ? lx : rx;
+      y = r === 0 || r === 1 ? lim[k] - b.height : topY;
+      // それでも上の人と重なるほど狭いときは、ボタン・待ちが出ている間だけ下の人を隠す
+      if ((r === 0 || r === 1) && y < topY + b.height + 2) el.style.visibility = 'hidden';
+    } else if (r === 0) {
+      // 縦向き：自分は手牌の左上
+      x = 8; y = hand.top - b.height - 6;
     } else {
-      // 縦向き：自分は手牌の左上、ほかの3人は盤の上に左・真ん中・右
-      if (r === 0) { x = 8; y = hand.top - b.height - 6; }
-      else { x = r === 3 ? 8 : r === 2 ? (W - b.width) / 2 : W - b.width - 8; y = Math.max(4, board.top - b.height + 6); }
+      // ほかの3人は上の帯に左・真ん中・右（顔の横に名前と点数。右は設定ボタンをよける）
+      // 広い画面（タブレット）は顔の横に名前、スマホは顔の下に小さく
+      if (W >= 600) { el.classList.add('row'); el.style.setProperty('--sz', (portraitStripH() - 8) + 'px'); }
+      else { el.classList.add('mini'); el.style.setProperty('--sz', '32px'); }
+      const bw = el.getBoundingClientRect().width, ob = $('#optsBtn').getBoundingClientRect();
+      const right = (ob.width ? ob.left : W) - 8;
+      x = r === 3 ? 8 : r === 1 ? right - bw : (W - bw) / 2;
+      y = 4;
     }
     el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+  // 縦向きの上の帯：真ん中（対面）が左右とぶつかるときは間に詰める
+  if (!land) {
+    const [, r1, r2, r3] = [0, 1, 2, 3].map(r => box.children[[0, 1, 2, 3].findIndex(s => rel(s) === r)]);
+    if (r1 && r2 && r3) {
+      const a = r3.getBoundingClientRect(), c = r1.getBoundingClientRect(), m = r2.getBoundingClientRect();
+      if (m.left < a.right + 4 || m.right > c.left - 4) r2.style.left = Math.max(a.right + 4, (a.right + c.left - m.width) / 2) + 'px';
+    }
   }
 }
 // リーチ・ツモ・ロンのときに、その人のキャラが大きく出る（同じ演出は一度だけ）
@@ -4652,10 +4695,12 @@ function fitLayout() {
     }
   } else {
     const availH = H - meH - 4;
-    const scale = Math.max(0.3, Math.min(W / 600, availH / 600));
-    b.style.transformOrigin = '';
-    b.style.top = '';
-    b.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    // 縦長の画面では、上に相手3人のキャラの帯を空けて、盤はその下（対面の手牌にキャラがかからないように）
+    const T = W < H0 ? portraitStripH() : 0;
+    const scale = Math.max(0.3, Math.min(W / 600, (availH - T) / 600));
+    b.style.transformOrigin = 'top center';
+    b.style.top = `${T + Math.max(0, (availH - T - 600 * scale) / 2)}px`;
+    b.style.transform = `translate(-50%, 0) scale(${scale})`;
     $('#boardWrap').style.flex = `0 0 ${availH}px`;
   }
   try { renderChars(); } catch (e) { /* キャラの表示の失敗は無視 */ }

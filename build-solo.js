@@ -23,7 +23,9 @@ html, body { height: 100%; }
 body { background: radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt-dark) 75%); background-color: var(--felt-dark); }
 .screen { top: env(safe-area-inset-top, 0px); bottom: env(safe-area-inset-bottom, 0px); }
 `;
-const out = `<title>友達麻雀 一人打ち</title>
+const out = `<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>友達麻雀 一人打ち</title>
 <meta name="theme-color" content="#0f3d2e">
 <style>
 ${css}
