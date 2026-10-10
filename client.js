@@ -77,6 +77,7 @@ function onState(data) {
   if (!prevS || prevS.gid !== S.gid || prevS.round.title !== S.round.title) myMeldCount = null; // 局・半荘が変わったら鳴きの演出の数え直し
   if (typeof S.noCall === 'boolean') $('#noCall').checked = S.noCall;
   else if (prevS && S.round && prevS.round && prevS.round.title !== S.round.title) $('#noCall').checked = false;
+  syncQuickNoCall();
   // 選んだ牌は、手牌に残っている限り自分の番が来ても選んだまま（先に選んでおける）
   if (!(S.hand && (S.hand.includes(selTile) || S.drawn === selTile))) selTile = null;
   try { soundFor(prevS, S); } catch (e) { /* 音の失敗は無視 */ }
@@ -193,6 +194,13 @@ function renderChars() {
       y = 4;
     }
     el.style.left = x + 'px'; el.style.top = y + 'px';
+  }
+  // 「鳴きなし」ボタン：横向きは設定ボタンの左、縦向きは手牌の右上（自分のキャラの反対側）
+  const qn = $('#quickNoCall'), ob = $('#optsBtn');
+  if (qn && ob) {
+    const q = qn.getBoundingClientRect(), o = ob.getBoundingClientRect();
+    if (land) { qn.style.left = (o.left - q.width - 8) + 'px'; qn.style.top = o.top + 'px'; }
+    else { qn.style.left = (W - q.width - 8) + 'px'; qn.style.top = (hand.top - q.height - 8) + 'px'; }
   }
   // 縦向きの上の帯：真ん中（対面）が左右とぶつかるときは間に詰める
   if (!land) {
@@ -667,7 +675,19 @@ function autoPlay() {
 }
 $('#autoWin').onchange = () => S && autoPlay();
 // 鳴きなし：サーバーに伝えて、ポン・チーの選択肢そのものを出さないようにする（ほかの人も待たされない）
-$('#noCall').onchange = () => { if (S) { api('act', { action: { type: 'noCall', on: $('#noCall').checked } }); autoPlay(); } };
+$('#noCall').onchange = () => { syncQuickNoCall(); if (S) { api('act', { action: { type: 'noCall', on: $('#noCall').checked } }); autoPlay(); } };
+// 「鳴きなし」は対局中すぐ押せるボタンにも出す（設定のチェックと同じもの）
+function syncQuickNoCall() {
+  let b = $('#quickNoCall');
+  if (!b) {
+    b = h('button', 'small', ''); b.id = 'quickNoCall';
+    b.onclick = (e) => { e.stopPropagation(); const c = $('#noCall'); c.checked = !c.checked; c.onchange(); };
+    $('#table').append(b);
+  }
+  const on = $('#noCall').checked;
+  b.classList.toggle('on', on);
+  b.textContent = on ? '鳴きなし ON' : '鳴きなし';
+}
 if (window.SFX) { $('#sound').value = SFX.mode; $('#sound').onchange = (e) => { SFX.setMode(e.target.value); if (e.target.value !== 'off') SFX.play('turn'); }; }
 if (window.SOLO) {
   // 一人打ち：ロビーがないので、設定からキャラを選ぶ

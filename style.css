@@ -709,3 +709,6 @@ body.landscape .center .dora { display: none; }
 .ring.mini { gap: 1px; }
 .ring.mini .nm { font-size: 11px; padding: 0 6px; max-width: 30vw; }
 .ring.mini .nm b { margin-left: 3px; }
+/* 対局中すぐ押せる「鳴きなし」 */
+#quickNoCall { position: fixed; z-index: 21; min-height: 32px; padding: 5px 12px; font-size: 13px; font-weight: 800; background: linear-gradient(180deg, #3b4a44, #25302b); color: #ddd; }
+#quickNoCall.on { background: linear-gradient(180deg, #ff8a5c, #d4402a); color: #fff; box-shadow: 0 3px 0 #7d1f10, 0 0 12px rgba(255,110,60,.55); }
